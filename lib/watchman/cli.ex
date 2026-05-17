@@ -21,6 +21,7 @@ defmodule Watchman.CLI do
   defp dispatch(["schedule", "status"]), do: Watchman.Scheduler.status()
   defp dispatch(["unschedule"]), do: Watchman.Scheduler.teardown()
   defp dispatch(["logs" | opts]), do: cmd_logs(opts)
+  defp dispatch(["update"]), do: cmd_update()
   defp dispatch(["completions", shell]), do: cmd_completions(shell)
   defp dispatch(["_complete_tickers"]), do: complete_tickers()
   defp dispatch(["_complete_retro_ids"]), do: complete_retro_ids()
@@ -405,6 +406,32 @@ defmodule Watchman.CLI do
       wm retro -m                 Generate monthly retrospective
       wm retro list               List all retrospectives
       wm retro show ID            Show a specific retrospective
+      wm update                   Pull latest version from GitHub
     """)
+  end
+
+  defp cmd_update do
+    project_dir = System.get_env("WATCHMAN_INSTALL_DIR") || File.cwd!()
+
+    IO.puts("Updating watchman...")
+
+    case System.cmd("git", ["pull", "--rebase"], cd: project_dir, stderr_to_stdout: true) do
+      {output, 0} ->
+        IO.puts(output)
+        IO.puts("Fetching dependencies...")
+
+        case System.cmd("mix", ["deps.get"], cd: project_dir, stderr_to_stdout: true) do
+          {_, 0} ->
+            IO.puts("Running migrations...")
+            System.cmd("mix", ["ecto.migrate"], cd: project_dir, stderr_to_stdout: true)
+            IO.puts("\n✓ Watchman updated successfully.")
+
+          {err, _} ->
+            IO.puts("Failed to fetch deps: #{err}")
+        end
+
+      {output, _} ->
+        IO.puts("Update failed:\n#{output}")
+    end
   end
 end
