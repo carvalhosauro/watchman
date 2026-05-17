@@ -95,8 +95,11 @@ defmodule Watchman.Scheduler do
         case System.cmd("systemctl", ["--user", "enable", "--now", "watchman.timer"],
                stderr_to_stdout: true
              ) do
-          {_, 0} -> IO.puts("\n  Timer enabled! Watchman will run daily at #{time}.")
-          {err, _} -> IO.puts("\n  Failed to enable: #{err}\n  Enable manually with the commands above.")
+          {_, 0} ->
+            IO.puts("\n  Timer enabled! Watchman will run daily at #{time}.")
+
+          {err, _} ->
+            IO.puts("\n  Failed to enable: #{err}\n  Enable manually with the commands above.")
         end
 
       _ ->
@@ -111,9 +114,19 @@ defmodule Watchman.Scheduler do
 
     [hour, minute] = String.split(time, ":")
     wm_path = Path.join(project_dir(), "bin/wm")
-    log_path = Path.join([System.get_env("HOME") || "~", ".local", "share", "watchman", "logs", "cron.log"])
 
-    cron_line = "#{minute} #{hour} * * * cd #{project_dir()} && #{wm_path} run >> #{log_path} 2>&1"
+    log_path =
+      Path.join([
+        System.get_env("HOME") || "~",
+        ".local",
+        "share",
+        "watchman",
+        "logs",
+        "cron.log"
+      ])
+
+    cron_line =
+      "#{minute} #{hour} * * * cd #{project_dir()} && #{wm_path} run >> #{log_path} 2>&1"
 
     IO.puts("\n  Cron entry:\n")
     IO.puts("    #{cron_line}")
@@ -181,7 +194,10 @@ defmodule Watchman.Scheduler do
     service_path = Path.join(unit_dir, "watchman.service")
 
     if File.exists?(timer_path) do
-      System.cmd("systemctl", ["--user", "disable", "--now", "watchman.timer"], stderr_to_stdout: true)
+      System.cmd("systemctl", ["--user", "disable", "--now", "watchman.timer"],
+        stderr_to_stdout: true
+      )
+
       File.rm(timer_path)
       File.rm(service_path)
       System.cmd("systemctl", ["--user", "daemon-reload"], stderr_to_stdout: true)
@@ -238,36 +254,60 @@ defmodule Watchman.Scheduler do
     timer_path = Path.join([home, ".config/systemd/user", "watchman.timer"])
 
     if File.exists?(timer_path) do
-      case System.cmd("systemctl", ["--user", "is-active", "watchman.timer"], stderr_to_stdout: true) do
+      case System.cmd("systemctl", ["--user", "is-active", "watchman.timer"],
+             stderr_to_stdout: true
+           ) do
         {status, _} ->
           IO.puts("  systemd timer: #{String.trim(status)}")
       end
 
-      case System.cmd("systemctl", ["--user", "show", "watchman.timer", "--property=NextElapseUSecRealtime"], stderr_to_stdout: true) do
+      case System.cmd(
+             "systemctl",
+             ["--user", "show", "watchman.timer", "--property=NextElapseUSecRealtime"],
+             stderr_to_stdout: true
+           ) do
         {next, 0} ->
-          IO.puts("  Next run: #{String.trim(next) |> String.replace("NextElapseUSecRealtime=", "")}")
-        _ -> :ok
+          IO.puts(
+            "  Next run: #{String.trim(next) |> String.replace("NextElapseUSecRealtime=", "")}"
+          )
+
+        _ ->
+          :ok
       end
 
       # Last service run result
-      case System.cmd("systemctl", ["--user", "show", "watchman.service",
-             "--property=ExecMainStatus", "--property=ExecMainStartTimestamp"],
-             stderr_to_stdout: true) do
+      case System.cmd(
+             "systemctl",
+             [
+               "--user",
+               "show",
+               "watchman.service",
+               "--property=ExecMainStatus",
+               "--property=ExecMainStartTimestamp"
+             ],
+             stderr_to_stdout: true
+           ) do
         {output, 0} ->
           lines = String.split(output, "\n", trim: true)
+
           for line <- lines do
             cond do
               String.starts_with?(line, "ExecMainStartTimestamp=") ->
                 ts = String.replace(line, "ExecMainStartTimestamp=", "")
                 if ts != "", do: IO.puts("  Last run: #{ts}")
+
               String.starts_with?(line, "ExecMainStatus=") ->
                 code = String.replace(line, "ExecMainStatus=", "")
                 result = if code == "0", do: "success", else: "exit code #{code}"
                 IO.puts("  Last result: #{result}")
-              true -> :ok
+
+              true ->
+                :ok
             end
           end
-        _ -> :ok
+
+        _ ->
+          :ok
       end
     end
   end
@@ -280,7 +320,8 @@ defmodule Watchman.Scheduler do
         |> Enum.filter(&String.contains?(&1, "watchman"))
         |> Enum.each(fn line -> IO.puts("  cron: #{line}") end)
 
-      _ -> :ok
+      _ ->
+        :ok
     end
   end
 
@@ -288,25 +329,38 @@ defmodule Watchman.Scheduler do
     import Ecto.Query
     alias Watchman.{Repo, Models.Analysis, Models.Asset}
 
-    case Repo.one(from a in Analysis, order_by: [desc: a.analyzed_at], limit: 1,
-           join: asset in Asset, on: a.asset_id == asset.id,
-           select: %{analyzed_at: a.analyzed_at, count: over(count(a.id))}) do
+    case Repo.one(
+           from a in Analysis,
+             order_by: [desc: a.analyzed_at],
+             limit: 1,
+             join: asset in Asset,
+             on: a.asset_id == asset.id,
+             select: %{analyzed_at: a.analyzed_at, count: over(count(a.id))}
+         ) do
       nil ->
         IO.puts("\n  No analyses found yet. Run: wm run")
+
       result ->
         today = Date.utc_today()
         date = DateTime.to_date(result.analyzed_at)
-        day_label = cond do
-          date == today -> "today"
-          date == Date.add(today, -1) -> "yesterday"
-          true -> to_string(date)
-        end
+
+        day_label =
+          cond do
+            date == today -> "today"
+            date == Date.add(today, -1) -> "yesterday"
+            true -> to_string(date)
+          end
 
         # Count today's analyses
         start_dt = DateTime.new!(today, ~T[00:00:00], "Etc/UTC")
-        today_count = Repo.one(from a in Analysis, where: a.analyzed_at >= ^start_dt, select: count(a.id))
 
-        IO.puts("\n  Last analysis: #{day_label} at #{Calendar.strftime(result.analyzed_at, "%H:%M")}")
+        today_count =
+          Repo.one(from a in Analysis, where: a.analyzed_at >= ^start_dt, select: count(a.id))
+
+        IO.puts(
+          "\n  Last analysis: #{day_label} at #{Calendar.strftime(result.analyzed_at, "%H:%M")}"
+        )
+
         IO.puts("  Today's analyses: #{today_count}")
     end
   end

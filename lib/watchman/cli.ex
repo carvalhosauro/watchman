@@ -37,12 +37,15 @@ defmodule Watchman.CLI do
         nil ->
           {:ok, _} = Repo.insert(Asset.changeset(%Asset{}, %{ticker: ticker, type: type}))
           IO.puts("+ #{ticker} (#{type})")
+
         %{active: false} = asset ->
           Repo.update!(Asset.changeset(asset, %{active: true, type: type}))
           IO.puts("+ #{ticker} (reactivated, #{type})")
+
         %{type: nil} = asset ->
           Repo.update!(Asset.changeset(asset, %{type: type}))
           IO.puts("~ #{ticker} (type set: #{type})")
+
         _existing ->
           IO.puts("~ #{ticker} (already tracked)")
       end
@@ -55,8 +58,10 @@ defmodule Watchman.CLI do
     case String.split(raw, ":") do
       [ticker, type] when type in ["ACAO", "FII"] ->
         {ticker, String.downcase(type)}
+
       [ticker] ->
         {ticker, detect_type(ticker)}
+
       _ ->
         {raw, detect_type(raw)}
     end
@@ -73,10 +78,12 @@ defmodule Watchman.CLI do
 
   defp cmd_list do
     assets = Repo.all(from a in Asset, where: a.active == true, order_by: a.ticker)
+
     if assets == [] do
       IO.puts("No assets tracked. Use: wm assets TICKER1 TICKER2")
     else
       IO.puts("Tracked assets:")
+
       for asset <- assets do
         type_label = if asset.type, do: " (#{asset.type})", else: ""
         IO.puts("  #{asset.ticker}#{type_label}")
@@ -91,8 +98,11 @@ defmodule Watchman.CLI do
   defp cmd_remove(tickers) do
     for ticker <- tickers do
       ticker = String.upcase(ticker)
+
       case Repo.get_by(Asset, ticker: ticker) do
-        nil -> IO.puts("? #{ticker} (not found)")
+        nil ->
+          IO.puts("? #{ticker} (not found)")
+
         asset ->
           Repo.update!(Asset.changeset(asset, %{active: false}))
           IO.puts("- #{ticker}")
@@ -107,17 +117,21 @@ defmodule Watchman.CLI do
   end
 
   defp cmd_show(opts) do
-    {parsed, args, _} = OptionParser.parse(opts,
-      switches: [last: :integer],
-      aliases: [l: :last]
-    )
+    {parsed, args, _} =
+      OptionParser.parse(opts,
+        switches: [last: :integer],
+        aliases: [l: :last]
+      )
+
     ticker = List.first(args)
     limit = parsed[:last]
 
     query =
       from a in Analysis,
-        join: asset in Asset, on: a.asset_id == asset.id,
-        join: s in PriceSnapshot, on: a.snapshot_id == s.id,
+        join: asset in Asset,
+        on: a.asset_id == asset.id,
+        join: s in PriceSnapshot,
+        on: a.snapshot_id == s.id,
         order_by: [desc: a.analyzed_at],
         select: %{
           ticker: asset.ticker,
@@ -170,15 +184,21 @@ defmodule Watchman.CLI do
   end
 
   defp cmd_logs(opts) do
-    {parsed, _, _} = OptionParser.parse(opts,
-      switches: [follow: :boolean, lines: :integer],
-      aliases: [f: :follow, n: :lines]
-    )
+    {parsed, _, _} =
+      OptionParser.parse(opts,
+        switches: [follow: :boolean, lines: :integer],
+        aliases: [f: :follow, n: :lines]
+      )
 
-    log_path = Path.join([
-      System.get_env("HOME") || "~",
-      ".local", "share", "watchman", "logs", "watchman.log"
-    ])
+    log_path =
+      Path.join([
+        System.get_env("HOME") || "~",
+        ".local",
+        "share",
+        "watchman",
+        "logs",
+        "watchman.log"
+      ])
 
     unless File.exists?(log_path) do
       IO.puts("No log file found at #{log_path}")
@@ -212,23 +232,32 @@ defmodule Watchman.CLI do
   defp cmd_retro(["show", id | _]), do: retro_show(id)
 
   defp cmd_retro(opts) do
-    {parsed, _, _} = OptionParser.parse(opts,
-      switches: [weekly: :boolean, monthly: :boolean],
-      aliases: [w: :weekly, m: :monthly]
-    )
-    period = cond do
-      parsed[:weekly] -> :weekly
-      parsed[:monthly] -> :monthly
-      true ->
-        IO.puts("""
-        Usage:
-          wm retro -w              Generate weekly retrospective
-          wm retro -m              Generate monthly retrospective
-          wm retro list            List all retrospectives
-          wm retro show ID         Show a specific retrospective
-        """)
-        :none
-    end
+    {parsed, _, _} =
+      OptionParser.parse(opts,
+        switches: [weekly: :boolean, monthly: :boolean],
+        aliases: [w: :weekly, m: :monthly]
+      )
+
+    period =
+      cond do
+        parsed[:weekly] ->
+          :weekly
+
+        parsed[:monthly] ->
+          :monthly
+
+        true ->
+          IO.puts("""
+          Usage:
+            wm retro -w              Generate weekly retrospective
+            wm retro -m              Generate monthly retrospective
+            wm retro list            List all retrospectives
+            wm retro show ID         Show a specific retrospective
+          """)
+
+          :none
+      end
+
     if period != :none do
       Watchman.Retro.generate(period)
     end
@@ -237,11 +266,18 @@ defmodule Watchman.CLI do
   defp retro_list do
     alias Watchman.Models.Retrospective
 
-    retros = Repo.all(
-      from r in Retrospective,
-        order_by: [desc: r.generated_at],
-        select: %{id: r.id, period_type: r.period_type, start_date: r.start_date, end_date: r.end_date, generated_at: r.generated_at}
-    )
+    retros =
+      Repo.all(
+        from r in Retrospective,
+          order_by: [desc: r.generated_at],
+          select: %{
+            id: r.id,
+            period_type: r.period_type,
+            start_date: r.start_date,
+            end_date: r.end_date,
+            generated_at: r.generated_at
+          }
+      )
 
     if retros == [] do
       IO.puts("No retrospectives yet. Generate one: wm retro -w")
@@ -249,6 +285,7 @@ defmodule Watchman.CLI do
       IO.puts("Retrospectives:\n")
       IO.puts("  ID   Period    Range                    Generated")
       IO.puts("  ---- -------- ------------------------ -------------------")
+
       for r <- retros do
         id = String.pad_leading(to_string(r.id), 4)
         period = String.pad_trailing(r.period_type, 8)
@@ -268,6 +305,7 @@ defmodule Watchman.CLI do
         case Repo.get(Retrospective, id) do
           nil ->
             IO.puts("Retrospective ##{id} not found.")
+
           retro ->
             IO.puts("""
             Retrospective ##{retro.id}
@@ -278,6 +316,7 @@ defmodule Watchman.CLI do
             #{retro.content}
             """)
         end
+
       :error ->
         IO.puts("Invalid ID. Usage: wm retro show 1")
     end
@@ -290,7 +329,14 @@ defmodule Watchman.CLI do
       # Dev/project root
       Path.join([File.cwd!(), "completions", ext]),
       # Installed via install.sh
-      Path.join([System.get_env("HOME") || "~", ".local", "share", "watchman", "completions", ext]),
+      Path.join([
+        System.get_env("HOME") || "~",
+        ".local",
+        "share",
+        "watchman",
+        "completions",
+        ext
+      ]),
       # Relative to app dir
       Path.join([Application.app_dir(:watchman), "..", "..", "completions", ext]) |> Path.expand()
     ]
@@ -312,6 +358,7 @@ defmodule Watchman.CLI do
 
   defp complete_retro_ids do
     alias Watchman.Models.Retrospective
+
     Repo.all(from r in Retrospective, select: r.id, order_by: [desc: r.id])
     |> Enum.each(fn id -> IO.puts(to_string(id)) end)
   end

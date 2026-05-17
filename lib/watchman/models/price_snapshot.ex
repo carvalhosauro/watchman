@@ -14,7 +14,14 @@ defmodule Watchman.Models.PriceSnapshot do
 
   def changeset(price_snapshot, attrs) do
     price_snapshot
-    |> cast(attrs, [:asset_id, :price, :variation_day, :variation_week, :variation_month, :fetched_at])
+    |> cast(attrs, [
+      :asset_id,
+      :price,
+      :variation_day,
+      :variation_week,
+      :variation_month,
+      :fetched_at
+    ])
     |> validate_required([:price])
     |> assoc_constraint(:asset)
   end

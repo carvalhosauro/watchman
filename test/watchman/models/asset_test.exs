@@ -33,13 +33,17 @@ defmodule Watchman.Models.AssetTest do
     test "rejects invalid type" do
       changeset = Asset.changeset(%Asset{}, %{ticker: "PETR4", type: "invalid"})
       refute changeset.valid?
+
       assert {:type, {"is invalid", [validation: :inclusion, enum: ["acao", "fii"]]}} in changeset.errors
     end
 
     test "unique ticker constraint" do
       {:ok, _} = Repo.insert(Asset.changeset(%Asset{}, %{ticker: "UNIQ1"}))
       {:error, changeset} = Repo.insert(Asset.changeset(%Asset{}, %{ticker: "UNIQ1"}))
-      assert {:ticker, {"has already been taken", [constraint: :unique, constraint_name: "assets_ticker_index"]}} in changeset.errors
+
+      assert {:ticker,
+              {"has already been taken",
+               [constraint: :unique, constraint_name: "assets_ticker_index"]}} in changeset.errors
     end
 
     test "default active is true" do

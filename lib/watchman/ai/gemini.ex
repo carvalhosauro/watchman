@@ -15,7 +15,13 @@ defmodule Watchman.AI.Gemini do
       generationConfig: %{temperature: 0.7, maxOutputTokens: 4096}
     }
 
-    case Req.post(url, json: body, params: [key: Watchman.Config.gemini_api_key()], receive_timeout: 90_000, retry: :transient, max_retries: 3) do
+    case Req.post(url,
+           json: body,
+           params: [key: Watchman.Config.gemini_api_key()],
+           receive_timeout: 90_000,
+           retry: :transient,
+           max_retries: 3
+         ) do
       {:ok, %Req.Response{status: 200, body: resp}} ->
         tokens = get_in(resp, ["usageMetadata", "totalTokenCount"]) || 0
         text = extract_text(resp)
@@ -41,7 +47,13 @@ defmodule Watchman.AI.Gemini do
       generationConfig: %{temperature: 0.7, maxOutputTokens: 4096}
     }
 
-    case Req.post(url, json: body, params: [key: Watchman.Config.gemini_api_key()], receive_timeout: 90_000, retry: :transient, max_retries: 3) do
+    case Req.post(url,
+           json: body,
+           params: [key: Watchman.Config.gemini_api_key()],
+           receive_timeout: 90_000,
+           retry: :transient,
+           max_retries: 3
+         ) do
       {:ok, %Req.Response{status: 200, body: resp}} ->
         {:ok, extract_text(resp)}
 
@@ -58,13 +70,15 @@ defmodule Watchman.AI.Gemini do
   end
 
   defp extract_grounding_sources(resp) do
-    chunks = get_in(resp, ["candidates", Access.at(0), "groundingMetadata", "groundingChunks"]) || []
+    chunks =
+      get_in(resp, ["candidates", Access.at(0), "groundingMetadata", "groundingChunks"]) || []
 
     chunks
     |> Enum.filter(&get_in(&1, ["web"]))
     |> Enum.uniq_by(&get_in(&1, ["web", "uri"]))
     |> Enum.map(fn chunk ->
       web = chunk["web"]
+
       %{
         title: web["title"],
         summary: nil,
@@ -95,13 +109,15 @@ defmodule Watchman.AI.Gemini do
           is_specific_problem: false,
           macro_context: nil,
           recommendation: "investigar",
-          justification: "Falha ao processar resposta da IA. Resposta bruta: #{String.slice(text, 0..500)}",
+          justification:
+            "Falha ao processar resposta da IA. Resposta bruta: #{String.slice(text, 0..500)}",
           tokens_used: tokens
         }
     end
   end
 
   defp extract_domain(nil), do: nil
+
   defp extract_domain(url) do
     case URI.parse(url) do
       %URI{host: host} when is_binary(host) -> host

@@ -66,25 +66,30 @@ defmodule Watchman.Setup do
 
     keys = %{}
 
-    keys = case ai do
-      "claude" ->
-        key = prompt_secret("  Anthropic API key")
-        Map.put(keys, :anthropic_key, key)
-      "gemini" ->
-        key = prompt_secret("  Gemini API key")
-        Map.put(keys, :gemini_key, key)
-      "deepseek" ->
-        key = prompt_secret("  DeepSeek API key")
-        Map.put(keys, :deepseek_key, key)
-    end
+    keys =
+      case ai do
+        "claude" ->
+          key = prompt_secret("  Anthropic API key")
+          Map.put(keys, :anthropic_key, key)
 
-    keys = case market do
-      "brapi" ->
-        key = prompt_secret("  Brapi token")
-        Map.put(keys, :brapi_token, key)
-      "yfinance" ->
-        keys
-    end
+        "gemini" ->
+          key = prompt_secret("  Gemini API key")
+          Map.put(keys, :gemini_key, key)
+
+        "deepseek" ->
+          key = prompt_secret("  DeepSeek API key")
+          Map.put(keys, :deepseek_key, key)
+      end
+
+    keys =
+      case market do
+        "brapi" ->
+          key = prompt_secret("  Brapi token")
+          Map.put(keys, :brapi_token, key)
+
+        "yfinance" ->
+          keys
+      end
 
     keys
   end
@@ -151,23 +156,25 @@ defmodule Watchman.Setup do
   end
 
   defp build_toml(ai, market, keys, pipeline, storage) do
-    api_section = case storage do
-      :keyring ->
-        """
-        [api]
-        # Keys stored in system keyring (managed by: wm setup)
-        # To update keys, run: wm setup
-        """
-      :config_file ->
-        """
-        [api]
-        # Keys stored here with chmod 600. Do NOT commit this file.
-        anthropic_key = "#{Map.get(keys, :anthropic_key, "")}"
-        gemini_key = "#{Map.get(keys, :gemini_key, "")}"
-        deepseek_key = "#{Map.get(keys, :deepseek_key, "")}"
-        brapi_token = "#{Map.get(keys, :brapi_token, "")}"
-        """
-    end
+    api_section =
+      case storage do
+        :keyring ->
+          """
+          [api]
+          # Keys stored in system keyring (managed by: wm setup)
+          # To update keys, run: wm setup
+          """
+
+        :config_file ->
+          """
+          [api]
+          # Keys stored here with chmod 600. Do NOT commit this file.
+          anthropic_key = "#{Map.get(keys, :anthropic_key, "")}"
+          gemini_key = "#{Map.get(keys, :gemini_key, "")}"
+          deepseek_key = "#{Map.get(keys, :deepseek_key, "")}"
+          brapi_token = "#{Map.get(keys, :brapi_token, "")}"
+          """
+      end
 
     """
     # Watchman configuration

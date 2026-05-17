@@ -51,6 +51,7 @@ defmodule Watchman.Models.RetrospectiveTest do
         })
 
       refute changeset.valid?
+
       assert {:period_type, {"is invalid", [validation: :inclusion, enum: ["weekly", "monthly"]]}} in changeset.errors
     end
 

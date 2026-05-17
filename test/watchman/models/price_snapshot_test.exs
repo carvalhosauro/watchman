@@ -26,17 +26,35 @@ defmodule Watchman.Models.PriceSnapshotTest do
     end
 
     test "accepts nil variation_day", %{asset: asset} do
-      changeset = PriceSnapshot.changeset(%PriceSnapshot{}, %{price: 10.0, asset_id: asset.id, variation_day: nil})
+      changeset =
+        PriceSnapshot.changeset(%PriceSnapshot{}, %{
+          price: 10.0,
+          asset_id: asset.id,
+          variation_day: nil
+        })
+
       assert changeset.valid?
     end
 
     test "accepts nil variation_week", %{asset: asset} do
-      changeset = PriceSnapshot.changeset(%PriceSnapshot{}, %{price: 10.0, asset_id: asset.id, variation_week: nil})
+      changeset =
+        PriceSnapshot.changeset(%PriceSnapshot{}, %{
+          price: 10.0,
+          asset_id: asset.id,
+          variation_week: nil
+        })
+
       assert changeset.valid?
     end
 
     test "accepts nil variation_month", %{asset: asset} do
-      changeset = PriceSnapshot.changeset(%PriceSnapshot{}, %{price: 10.0, asset_id: asset.id, variation_month: nil})
+      changeset =
+        PriceSnapshot.changeset(%PriceSnapshot{}, %{
+          price: 10.0,
+          asset_id: asset.id,
+          variation_month: nil
+        })
+
       assert changeset.valid?
     end
   end

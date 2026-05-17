@@ -25,7 +25,9 @@ defmodule Watchman.Models.AnalysisTest do
     end
 
     test "validates recommendation - investigar is valid", %{asset: asset} do
-      changeset = Analysis.changeset(%Analysis{}, %{asset_id: asset.id, recommendation: "investigar"})
+      changeset =
+        Analysis.changeset(%Analysis{}, %{asset_id: asset.id, recommendation: "investigar"})
+
       assert changeset.valid?
     end
 
@@ -35,9 +37,13 @@ defmodule Watchman.Models.AnalysisTest do
     end
 
     test "rejects invalid recommendation", %{asset: asset} do
-      changeset = Analysis.changeset(%Analysis{}, %{asset_id: asset.id, recommendation: "comprar"})
+      changeset =
+        Analysis.changeset(%Analysis{}, %{asset_id: asset.id, recommendation: "comprar"})
+
       refute changeset.valid?
-      assert {:recommendation, {"is invalid", [validation: :inclusion, enum: ["manter", "investigar", "vender"]]}} in changeset.errors
+
+      assert {:recommendation,
+              {"is invalid", [validation: :inclusion, enum: ["manter", "investigar", "vender"]]}} in changeset.errors
     end
 
     test "requires recommendation", %{asset: asset} do
@@ -47,17 +53,35 @@ defmodule Watchman.Models.AnalysisTest do
     end
 
     test "accepts nil cause", %{asset: asset} do
-      changeset = Analysis.changeset(%Analysis{}, %{asset_id: asset.id, recommendation: "manter", cause: nil})
+      changeset =
+        Analysis.changeset(%Analysis{}, %{
+          asset_id: asset.id,
+          recommendation: "manter",
+          cause: nil
+        })
+
       assert changeset.valid?
     end
 
     test "accepts nil macro_context", %{asset: asset} do
-      changeset = Analysis.changeset(%Analysis{}, %{asset_id: asset.id, recommendation: "manter", macro_context: nil})
+      changeset =
+        Analysis.changeset(%Analysis{}, %{
+          asset_id: asset.id,
+          recommendation: "manter",
+          macro_context: nil
+        })
+
       assert changeset.valid?
     end
 
     test "accepts nil justification", %{asset: asset} do
-      changeset = Analysis.changeset(%Analysis{}, %{asset_id: asset.id, recommendation: "manter", justification: nil})
+      changeset =
+        Analysis.changeset(%Analysis{}, %{
+          asset_id: asset.id,
+          recommendation: "manter",
+          justification: nil
+        })
+
       assert changeset.valid?
     end
 

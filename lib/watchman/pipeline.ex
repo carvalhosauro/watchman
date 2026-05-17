@@ -62,7 +62,10 @@ defmodule Watchman.Pipeline do
          {:ok, analysis_data, news_items} <- call_ai(asset, snapshot),
          {:ok, _analysis} <- persist_analysis(asset, snapshot, analysis_data),
          :ok <- persist_news(asset, news_items) do
-      Logger.info("#{asset.ticker}: #{analysis_data.recommendation} (#{analysis_data.tokens_used || 0} tokens)")
+      Logger.info(
+        "#{asset.ticker}: #{analysis_data.recommendation} (#{analysis_data.tokens_used || 0} tokens)"
+      )
+
       IO.puts("  ✓ #{asset.ticker} — #{analysis_data.recommendation}")
       {:ok, asset.ticker, analysis_data.recommendation}
     else
@@ -86,7 +89,10 @@ defmodule Watchman.Pipeline do
         {:ok, data}
 
       {:error, reason} ->
-        Logger.warning("#{asset.ticker}: primary provider failed (#{inspect(reason)}), trying fallback")
+        Logger.warning(
+          "#{asset.ticker}: primary provider failed (#{inspect(reason)}), trying fallback"
+        )
+
         try_fallback(provider, asset.ticker)
     end
   end
