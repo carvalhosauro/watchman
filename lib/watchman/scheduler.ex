@@ -33,7 +33,7 @@ defmodule Watchman.Scheduler do
   # --- systemd ---
 
   defp setup_systemd do
-    time = prompt("  Run at (HH:MM)", "08:00")
+    time = prompt_time("  Run at (HH:MM)", "08:00")
     home = System.get_env("HOME") || "~"
     wm_path = Path.join(project_dir(), "bin/wm")
 
@@ -51,7 +51,7 @@ defmodule Watchman.Scheduler do
     ExecStart=#{wm_path} run
     WorkingDirectory=#{project_dir()}
     Environment="HOME=#{home}"
-    Environment="PATH=#{System.get_env("PATH")}"
+    Environment="PATH=/usr/local/bin:/usr/bin:/bin"
     Environment="MIX_ENV=prod"
     StandardOutput=journal
     StandardError=journal
@@ -112,7 +112,7 @@ defmodule Watchman.Scheduler do
   # --- cron ---
 
   defp setup_cron do
-    time = prompt("  Run at (HH:MM)", "08:00")
+    time = prompt_time("  Run at (HH:MM)", "08:00")
 
     [hour, minute] = String.split(time, ":")
     wm_path = Path.join(project_dir(), "bin/wm")
@@ -389,6 +389,28 @@ defmodule Watchman.Scheduler do
     end
   rescue
     _ -> :other
+  end
+
+  defp prompt_time(label, default) do
+    time = prompt(label, default)
+
+    if valid_time?(time) do
+      time
+    else
+      IO.puts("    Invalid time format. Use HH:MM (00:00 to 23:59)")
+      prompt_time(label, default)
+    end
+  end
+
+  defp valid_time?(time) do
+    case String.split(time, ":") do
+      [h, m] ->
+        case {Integer.parse(h), Integer.parse(m)} do
+          {{hour, ""}, {minute, ""}} -> hour >= 0 and hour <= 23 and minute >= 0 and minute <= 59
+          _ -> false
+        end
+      _ -> false
+    end
   end
 
   defp prompt(label, default) do
