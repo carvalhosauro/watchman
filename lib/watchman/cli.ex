@@ -15,6 +15,9 @@ defmodule Watchman.CLI do
       ["retro" | opts] -> cmd_retro(opts)
       ["setup"] -> Watchman.Setup.run()
       ["schedule"] -> Watchman.Scheduler.setup()
+      ["schedule", "status"] -> Watchman.Scheduler.status()
+      ["unschedule"] -> Watchman.Scheduler.teardown()
+      ["logs" | opts] -> cmd_logs(opts)
       _ -> print_usage()
     end
   end
@@ -163,6 +166,39 @@ defmodule Watchman.CLI do
     end
   end
 
+  defp cmd_logs(opts) do
+    {parsed, _, _} = OptionParser.parse(opts,
+      switches: [follow: :boolean, lines: :integer],
+      aliases: [f: :follow, n: :lines]
+    )
+
+    log_path = Path.join([
+      System.get_env("HOME") || "~",
+      ".local", "share", "watchman", "logs", "watchman.log"
+    ])
+
+    unless File.exists?(log_path) do
+      IO.puts("No log file found at #{log_path}")
+      IO.puts("Logs are created after running: wm run")
+      System.halt(0)
+    end
+
+    cond do
+      parsed[:follow] ->
+        IO.puts("Following #{log_path} (Ctrl+C to stop)\n")
+        System.cmd("tail", ["-f", log_path], into: IO.stream())
+
+      parsed[:lines] ->
+        n = to_string(parsed[:lines])
+        {output, _} = System.cmd("tail", ["-n", n, log_path])
+        IO.write(output)
+
+      true ->
+        {output, _} = System.cmd("tail", ["-n", "50", log_path])
+        IO.write(output)
+    end
+  end
+
   defp format_datetime(nil), do: "—"
   defp format_datetime(dt), do: Calendar.strftime(dt, "%Y-%m-%d %H:%M")
 
@@ -194,6 +230,11 @@ defmodule Watchman.CLI do
     Usage:
       wm setup                    Interactive configuration wizard
       wm schedule                  Set up daily automated runs
+      wm schedule status           Show schedule status
+      wm unschedule                Remove scheduled runs
+      wm logs                      Show last 50 log lines
+      wm logs -f                   Follow log in real-time
+      wm logs -n 100               Show last N log lines
       wm assets TICKER1 TICKER2   Register assets to track
       wm list                     List tracked assets
       wm remove TICKER1           Stop tracking an asset

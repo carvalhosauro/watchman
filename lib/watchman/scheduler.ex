@@ -158,6 +158,109 @@ defmodule Watchman.Scheduler do
     end
   end
 
+  # --- teardown ---
+
+  def teardown do
+    IO.puts("")
+
+    systemd_removed = teardown_systemd()
+    cron_removed = teardown_cron()
+
+    if systemd_removed or cron_removed do
+      IO.puts("\n  Schedule removed.")
+    else
+      IO.puts("  No active schedule found.")
+    end
+  end
+
+  defp teardown_systemd do
+    home = System.get_env("HOME") || "~"
+    unit_dir = Path.join(home, ".config/systemd/user")
+    timer_path = Path.join(unit_dir, "watchman.timer")
+    service_path = Path.join(unit_dir, "watchman.service")
+
+    if File.exists?(timer_path) do
+      System.cmd("systemctl", ["--user", "disable", "--now", "watchman.timer"], stderr_to_stdout: true)
+      File.rm(timer_path)
+      File.rm(service_path)
+      System.cmd("systemctl", ["--user", "daemon-reload"], stderr_to_stdout: true)
+      IO.puts("  Removed systemd timer and service")
+      true
+    else
+      false
+    end
+  end
+
+  defp teardown_cron do
+    case System.cmd("crontab", ["-l"], stderr_to_stdout: true) do
+      {content, 0} ->
+        if String.contains?(content, "watchman") do
+          cleaned =
+            content
+            |> String.split("\n")
+            |> Enum.reject(&String.contains?(&1, "watchman"))
+            |> Enum.join("\n")
+            |> String.trim()
+
+          tmp = Path.join(System.tmp_dir!(), "watchman_crontab")
+
+          if cleaned == "" do
+            System.cmd("crontab", ["-r"], stderr_to_stdout: true)
+          else
+            File.write!(tmp, cleaned <> "\n")
+            System.cmd("crontab", [tmp], stderr_to_stdout: true)
+            File.rm(tmp)
+          end
+
+          IO.puts("  Removed cron entry")
+          true
+        else
+          false
+        end
+
+      _ ->
+        false
+    end
+  end
+
+  # --- status ---
+
+  def status do
+    IO.puts("")
+    systemd_status()
+    cron_status()
+  end
+
+  defp systemd_status do
+    home = System.get_env("HOME") || "~"
+    timer_path = Path.join([home, ".config/systemd/user", "watchman.timer"])
+
+    if File.exists?(timer_path) do
+      case System.cmd("systemctl", ["--user", "is-active", "watchman.timer"], stderr_to_stdout: true) do
+        {status, _} ->
+          IO.puts("  systemd timer: #{String.trim(status)}")
+      end
+
+      case System.cmd("systemctl", ["--user", "show", "watchman.timer", "--property=NextElapseUSecRealtime"], stderr_to_stdout: true) do
+        {next, 0} ->
+          IO.puts("  #{String.trim(next)}")
+        _ -> :ok
+      end
+    end
+  end
+
+  defp cron_status do
+    case System.cmd("crontab", ["-l"], stderr_to_stdout: true) do
+      {content, 0} ->
+        content
+        |> String.split("\n")
+        |> Enum.filter(&String.contains?(&1, "watchman"))
+        |> Enum.each(fn line -> IO.puts("  cron: #{line}") end)
+
+      _ -> :ok
+    end
+  end
+
   # --- helpers ---
 
   defp detect_init_system do
