@@ -18,6 +18,7 @@ _wm() {
     'retro:Generate or view retrospectives'
     'logs:View log file'
     'completions:Output shell completion script'
+    'update:Pull latest version from GitHub'
   )
 
   _arguments -C \
@@ -39,7 +40,7 @@ _wm() {
           local -a tickers
           [[ -f "${_WM_CACHE_DIR}/tickers" ]] && tickers=(${(f)"$(cat "${_WM_CACHE_DIR}/tickers")"})
           _alternative \
-            'tickers:ticker:(${tickers})' \
+            "tickers:ticker:($tickers)" \
             'flags:flag:(--last -l)'
           ;;
         retro)
@@ -61,13 +62,19 @@ _wm() {
           fi
           ;;
         schedule)
-          _describe 'subcommand' '(status:Show\ schedule\ status)'
+          local -a subcmds
+          subcmds=('status:Show schedule status')
+          _describe 'subcommand' subcmds
           ;;
         logs)
-          _describe 'flag' '(-f:Follow\ in\ real-time -n:Show\ last\ N\ lines --follow:Follow --lines:Lines)'
+          local -a flags
+          flags=('-f:Follow in real-time' '-n:Show last N lines' '--follow:Follow' '--lines:Lines')
+          _describe 'flag' flags
           ;;
         completions)
-          _describe 'shell' '(bash:Bash\ completion zsh:Zsh\ completion)'
+          local -a shells
+          shells=('bash:Bash completion' 'zsh:Zsh completion')
+          _describe 'shell' shells
           ;;
       esac
       ;;

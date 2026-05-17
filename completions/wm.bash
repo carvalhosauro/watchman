@@ -25,7 +25,7 @@ _wm_completions() {
   prev="${COMP_WORDS[COMP_CWORD-1]}"
 
   # Top-level commands
-  local commands="setup schedule unschedule assets list remove run show retro logs completions"
+  local commands="setup schedule unschedule assets list remove run show retro logs completions update"
 
   case "${COMP_CWORD}" in
     1)
@@ -74,7 +74,24 @@ _wm_completions() {
           tickers=$(_wm_cached_tickers)
           COMPREPLY=($(compgen -W "${tickers}" -- "${cur}"))
           ;;
+        show)
+          if [[ "${prev}" != "-l" && "${prev}" != "--last" ]]; then
+            local tickers
+            tickers=$(_wm_cached_tickers)
+            COMPREPLY=($(compgen -W "${tickers} --last -l" -- "${cur}"))
+          fi
+          ;;
         *)
+          ;;
+      esac
+      ;;
+    *)
+      local cmd="${COMP_WORDS[1]}"
+      case "${cmd}" in
+        remove)
+          local tickers
+          tickers=$(_wm_cached_tickers)
+          COMPREPLY=($(compgen -W "${tickers}" -- "${cur}"))
           ;;
       esac
       ;;
