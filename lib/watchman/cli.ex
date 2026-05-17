@@ -18,6 +18,9 @@ defmodule Watchman.CLI do
       ["schedule", "status"] -> Watchman.Scheduler.status()
       ["unschedule"] -> Watchman.Scheduler.teardown()
       ["logs" | opts] -> cmd_logs(opts)
+      ["completions", shell] -> cmd_completions(shell)
+      ["_complete_tickers"] -> complete_tickers()
+      ["_complete_retro_ids"] -> complete_retro_ids()
       _ -> print_usage()
     end
   end
@@ -278,6 +281,39 @@ defmodule Watchman.CLI do
       :error ->
         IO.puts("Invalid ID. Usage: wm retro show 1")
     end
+  end
+
+  defp cmd_completions(shell) when shell in ["bash", "zsh"] do
+    ext = if shell == "bash", do: "wm.bash", else: "wm.zsh"
+
+    paths = [
+      # Dev/project root
+      Path.join([File.cwd!(), "completions", ext]),
+      # Installed via install.sh
+      Path.join([System.get_env("HOME") || "~", ".local", "share", "watchman", "completions", ext]),
+      # Relative to app dir
+      Path.join([Application.app_dir(:watchman), "..", "..", "completions", ext]) |> Path.expand()
+    ]
+
+    case Enum.find(paths, &File.exists?/1) do
+      nil -> IO.puts("Completion file not found. Searched:\n#{Enum.join(paths, "\n")}")
+      path -> IO.write(File.read!(path))
+    end
+  end
+
+  defp cmd_completions(_) do
+    IO.puts("Usage: wm completions bash | zsh")
+  end
+
+  defp complete_tickers do
+    Repo.all(from a in Asset, where: a.active == true, select: a.ticker, order_by: a.ticker)
+    |> Enum.each(&IO.puts/1)
+  end
+
+  defp complete_retro_ids do
+    alias Watchman.Models.Retrospective
+    Repo.all(from r in Retrospective, select: r.id, order_by: [desc: r.id])
+    |> Enum.each(fn id -> IO.puts(to_string(id)) end)
   end
 
   defp print_usage do
