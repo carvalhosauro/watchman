@@ -13,3 +13,4 @@
 /test/watchman_test.db*
 /cover/
 .omc/
+*.dump

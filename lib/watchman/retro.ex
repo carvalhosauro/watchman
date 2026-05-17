@@ -50,9 +50,12 @@ defmodule Watchman.Retro do
 
     Repo.all(
       from a in Analysis,
-        join: asset in Asset, on: a.asset_id == asset.id,
-        join: s in PriceSnapshot, on: a.snapshot_id == s.id,
-        left_join: n in NewsItem, on: n.asset_id == asset.id and n.fetched_at >= ^start_dt and n.fetched_at <= ^end_dt,
+        join: asset in Asset,
+        on: a.asset_id == asset.id,
+        join: s in PriceSnapshot,
+        on: a.snapshot_id == s.id,
+        left_join: n in NewsItem,
+        on: n.asset_id == asset.id and n.fetched_at >= ^start_dt and n.fetched_at <= ^end_dt,
         where: a.analyzed_at >= ^start_dt and a.analyzed_at <= ^end_dt,
         select: %{
           ticker: asset.ticker,

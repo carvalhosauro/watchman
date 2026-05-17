@@ -409,7 +409,9 @@ defmodule Watchman.Scheduler do
           {{hour, ""}, {minute, ""}} -> hour >= 0 and hour <= 23 and minute >= 0 and minute <= 59
           _ -> false
         end
-      _ -> false
+
+      _ ->
+        false
     end
   end
 
