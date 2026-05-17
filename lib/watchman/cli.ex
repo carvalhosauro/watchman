@@ -70,12 +70,15 @@ defmodule Watchman.CLI do
     end
   end
 
+  @known_etfs ~w(BOVA11 IVVB11 SMAL11 DIVO11 FIND11 HASH11 XFIX11 GOLD11 MATB11 IMAB11 FIXA11)
+
   defp detect_type(ticker) do
-    # FIIs typically end in 11 (e.g., MXRF11, HGLG11, XPLG11)
-    if Regex.match?(~r/\d{2}$/, ticker) and String.ends_with?(ticker, "11") do
-      "fii"
-    else
-      "acao"
+    upper = String.upcase(ticker)
+
+    cond do
+      upper in @known_etfs -> "acao"
+      String.ends_with?(upper, "11") -> "fii"
+      true -> "acao"
     end
   end
 
@@ -121,7 +124,6 @@ defmodule Watchman.CLI do
   end
 
   defp cmd_run(_opts) do
-    # Will be wired to Pipeline.run/0 in step 5
     IO.puts("Running analysis...")
     Watchman.Pipeline.run()
   end
@@ -219,22 +221,23 @@ defmodule Watchman.CLI do
     unless File.exists?(log_path) do
       IO.puts("No log file found at #{log_path}")
       IO.puts("Logs are created after running: wm run")
-      System.halt(0)
     end
 
-    cond do
-      parsed[:follow] ->
-        IO.puts("Following #{log_path} (Ctrl+C to stop)\n")
-        System.cmd("tail", ["-f", log_path], into: IO.stream())
+    if File.exists?(log_path) do
+      cond do
+        parsed[:follow] ->
+          IO.puts("Following #{log_path} (Ctrl+C to stop)\n")
+          System.cmd("tail", ["-f", log_path], into: IO.stream())
 
-      parsed[:lines] ->
-        n = to_string(parsed[:lines])
-        {output, _} = System.cmd("tail", ["-n", n, log_path])
-        IO.write(output)
+        parsed[:lines] ->
+          n = to_string(parsed[:lines])
+          {output, _} = System.cmd("tail", ["-n", n, log_path])
+          IO.write(output)
 
-      true ->
-        {output, _} = System.cmd("tail", ["-n", "50", log_path])
-        IO.write(output)
+        true ->
+          {output, _} = System.cmd("tail", ["-n", "50", log_path])
+          IO.write(output)
+      end
     end
   end
 

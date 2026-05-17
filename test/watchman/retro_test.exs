@@ -228,9 +228,9 @@ defmodule Watchman.RetroTest do
       end)
     end
 
-    test "monthly range covers last 30 days" do
+    test "monthly range covers from beginning of current month" do
       today = Date.utc_today()
-      expected_start = Date.add(today, -30)
+      expected_start = Date.beginning_of_month(today)
 
       analyzed_at = DateTime.new!(expected_start, ~T[12:00:00], "Etc/UTC")
       seed_period_data(analyzed_at)

@@ -38,9 +38,9 @@ defmodule Watchman.ConfigTest do
   end
 
   describe "max_concurrency/0" do
-    test "defaults to 10" do
+    test "defaults to 3" do
       Application.put_env(:watchman, :toml_config, %{})
-      assert Config.max_concurrency() == 10
+      assert Config.max_concurrency() == 3
     end
 
     test "reads from TOML" do
