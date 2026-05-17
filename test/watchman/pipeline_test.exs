@@ -48,7 +48,7 @@ defmodule Watchman.PipelineTest do
     snapshot
   end
 
-  defp insert_analysis(asset, snapshot, attrs \\ %{}) do
+  defp insert_analysis(asset, snapshot, attrs) do
     defaults = %{
       asset_id: asset.id,
       snapshot_id: snapshot.id,

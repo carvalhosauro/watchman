@@ -39,7 +39,12 @@ defmodule Watchman.MixProject do
     [
       setup: ["deps.get", "ecto.create", "ecto.migrate"],
       lint: ["credo --strict"],
-      quality: ["compile --warnings-as-errors", "credo --strict", "test"],
+      quality: [
+        "format --check-formatted",
+        "compile --warnings-as-errors",
+        "credo --strict",
+        "test"
+      ],
       ci: ["deps.get", "quality"]
     ]
   end
