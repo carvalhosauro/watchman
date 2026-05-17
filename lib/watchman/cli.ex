@@ -14,6 +14,7 @@ defmodule Watchman.CLI do
       ["show" | opts] -> cmd_show(opts)
       ["retro" | opts] -> cmd_retro(opts)
       ["setup"] -> Watchman.Setup.run()
+      ["schedule"] -> Watchman.Scheduler.setup()
       _ -> print_usage()
     end
   end
@@ -192,6 +193,7 @@ defmodule Watchman.CLI do
 
     Usage:
       wm setup                    Interactive configuration wizard
+      wm schedule                  Set up daily automated runs
       wm assets TICKER1 TICKER2   Register assets to track
       wm list                     List tracked assets
       wm remove TICKER1           Stop tracking an asset
