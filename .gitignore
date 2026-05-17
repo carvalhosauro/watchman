@@ -1,0 +1,14 @@
+/_build/
+/deps/
+/.elixir_ls/
+/doc/
+*.ez
+*.beam
+*.plt
+/wm
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+/test/watchman_test.db*
+.omc/
