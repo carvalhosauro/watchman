@@ -19,26 +19,26 @@ defmodule Watchman.Config do
     Application.put_env(:watchman, :toml_config, toml)
   end
 
-  # API keys — env vars override TOML
+  # API keys — priority: env var > keyring > TOML
 
   def anthropic_api_key do
-    get_key("ANTHROPIC_API_KEY", ["api", "anthropic_key"],
-      "ANTHROPIC_API_KEY not set. Export it or add to ~/.config/watchman/config.toml")
+    get_key("ANTHROPIC_API_KEY", "anthropic_key", ["api", "anthropic_key"],
+      "ANTHROPIC_API_KEY not set. Run: wm setup")
   end
 
   def gemini_api_key do
-    get_key("GEMINI_API_KEY", ["api", "gemini_key"],
-      "GEMINI_API_KEY not set. Export it or add to ~/.config/watchman/config.toml")
+    get_key("GEMINI_API_KEY", "gemini_key", ["api", "gemini_key"],
+      "GEMINI_API_KEY not set. Run: wm setup")
   end
 
   def deepseek_api_key do
-    get_key("DEEPSEEK_API_KEY", ["api", "deepseek_key"],
-      "DEEPSEEK_API_KEY not set. Export it or add to ~/.config/watchman/config.toml")
+    get_key("DEEPSEEK_API_KEY", "deepseek_key", ["api", "deepseek_key"],
+      "DEEPSEEK_API_KEY not set. Run: wm setup")
   end
 
   def brapi_token do
-    get_key("BRAPI_TOKEN", ["api", "brapi_token"],
-      "BRAPI_TOKEN not set. Export it or add to ~/.config/watchman/config.toml")
+    get_key("BRAPI_TOKEN", "brapi_token", ["api", "brapi_token"],
+      "BRAPI_TOKEN not set. Run: wm setup")
   end
 
   # Providers
@@ -89,8 +89,9 @@ defmodule Watchman.Config do
 
   # Helpers
 
-  defp get_key(env_var, toml_path, error_msg) do
+  defp get_key(env_var, keyring_key, toml_path, error_msg) do
     System.get_env(env_var) ||
+      Watchman.Credentials.get(keyring_key) ||
       toml_get(toml_path) ||
       raise error_msg
   end
