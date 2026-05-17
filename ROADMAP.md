@@ -16,8 +16,10 @@
 
 ## v0.2.0 — Automation & Alerts
 
-- [ ] File logging with daily rotation
-- [ ] Scheduled runs (systemd timer / cron generation)
+- [x] File logging with rotation (OTP logger_std_h, 10MB, 7 files)
+- [x] Scheduled runs (systemd timer / cron generation)
+- [x] Schedule management (status, unschedule)
+- [x] Log viewer (`wm logs`, `-f`, `-n`)
 - [ ] Telegram alerts on "investigar" or "vender" recommendations
 - [ ] Discord webhook alerts (alternative to Telegram)
 - [ ] Rate limiting for free-tier API compliance
