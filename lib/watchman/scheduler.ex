@@ -1,6 +1,7 @@
 defmodule Watchman.Scheduler do
-  @install_dir System.get_env("WATCHMAN_INSTALL_DIR") ||
-                 Path.join([System.get_env("HOME") || "~", ".local", "share", "watchman"])
+  defp project_dir do
+    System.get_env("WATCHMAN_INSTALL_DIR") || File.cwd!()
+  end
 
   def setup do
     IO.puts("""
@@ -32,7 +33,7 @@ defmodule Watchman.Scheduler do
   defp setup_systemd do
     time = prompt("  Run at (HH:MM)", "08:00")
     home = System.get_env("HOME") || "~"
-    wm_path = Path.join(@install_dir, "bin/wm")
+    wm_path = Path.join(project_dir(), "bin/wm")
 
     unit_dir = Path.join(home, ".config/systemd/user")
     File.mkdir_p!(unit_dir)
@@ -46,7 +47,7 @@ defmodule Watchman.Scheduler do
     [Service]
     Type=oneshot
     ExecStart=#{wm_path} run
-    WorkingDirectory=#{@install_dir}
+    WorkingDirectory=#{project_dir()}
     Environment="HOME=#{home}"
     Environment="PATH=#{System.get_env("PATH")}"
     Environment="MIX_ENV=prod"
@@ -109,10 +110,10 @@ defmodule Watchman.Scheduler do
     time = prompt("  Run at (HH:MM)", "08:00")
 
     [hour, minute] = String.split(time, ":")
-    wm_path = Path.join(@install_dir, "bin/wm")
+    wm_path = Path.join(project_dir(), "bin/wm")
     log_path = Path.join([System.get_env("HOME") || "~", ".local", "share", "watchman", "logs", "cron.log"])
 
-    cron_line = "#{minute} #{hour} * * * cd #{@install_dir} && #{wm_path} run >> #{log_path} 2>&1"
+    cron_line = "#{minute} #{hour} * * * cd #{project_dir()} && #{wm_path} run >> #{log_path} 2>&1"
 
     IO.puts("\n  Cron entry:\n")
     IO.puts("    #{cron_line}")
