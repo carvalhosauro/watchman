@@ -3,7 +3,6 @@ defmodule Watchman.Pipeline do
 
   require Logger
 
-  alias Watchman.Market.{Brapi, Yfinance}
   alias Watchman.Models.{Analysis, Asset, NewsItem, PriceSnapshot}
   alias Watchman.Repo
   import Ecto.Query
@@ -100,9 +99,11 @@ defmodule Watchman.Pipeline do
     end
   end
 
+  alias Watchman.Market.{Brapi, Yfinance}
+
   defp try_fallback(Brapi, ticker), do: Yfinance.fetch(ticker)
   defp try_fallback(Yfinance, ticker), do: Brapi.fetch(ticker)
-  defp try_fallback(_, _ticker), do: {:error, :price_fetch, "all providers failed"}
+  defp try_fallback(_, _ticker), do: {:error, "all market providers failed"}
 
   defp call_ai(asset, snapshot) do
     Watchman.AI.Factory.provider().analyze(asset, snapshot)
@@ -125,8 +126,8 @@ defmodule Watchman.Pipeline do
   end
 
   defp persist_analysis(asset, snapshot, analysis_data) do
-    # Compute cost (Sonnet 4 pricing: $3/MTok input, $15/MTok output — approximate with blended $5/MTok)
-    cost = (analysis_data.tokens_used || 0) * 5.0 / 1_000_000
+    # Compute cost based on active provider's blended rate
+    cost = (analysis_data.tokens_used || 0) * cost_per_mtok() / 1_000_000
 
     attrs = %{
       asset_id: asset.id,
@@ -147,6 +148,15 @@ defmodule Watchman.Pipeline do
     end
   end
 
+  defp cost_per_mtok do
+    case Watchman.AI.Factory.provider() do
+      Watchman.AI.Claude -> 5.0
+      Watchman.AI.Gemini -> 0.30
+      Watchman.AI.DeepSeek -> 1.10
+      _ -> 5.0
+    end
+  end
+
   defp persist_news(asset, news_items) do
     now = DateTime.utc_now()
 
@@ -161,7 +171,15 @@ defmodule Watchman.Pipeline do
         fetched_at: now
       }
 
-      Repo.insert(NewsItem.changeset(%NewsItem{}, attrs))
+      case Repo.insert(NewsItem.changeset(%NewsItem{}, attrs)) do
+        {:ok, _} ->
+          :ok
+
+        {:error, changeset} ->
+          Logger.warning(
+            "Failed to persist news for #{asset.ticker}: #{inspect(changeset.errors)}"
+          )
+      end
     end)
 
     :ok

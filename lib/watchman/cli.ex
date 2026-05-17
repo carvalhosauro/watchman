@@ -21,7 +21,9 @@ defmodule Watchman.CLI do
   defp dispatch(["schedule", "status"]), do: Watchman.Scheduler.status()
   defp dispatch(["unschedule"]), do: Watchman.Scheduler.teardown()
   defp dispatch(["logs" | opts]), do: cmd_logs(opts)
+  defp dispatch(["update"]), do: cmd_update()
   defp dispatch(["completions", shell]), do: cmd_completions(shell)
+  # Debug helpers — completions now use file cache, but these remain for manual testing
   defp dispatch(["_complete_tickers"]), do: complete_tickers()
   defp dispatch(["_complete_retro_ids"]), do: complete_retro_ids()
   defp dispatch(_), do: print_usage()
@@ -51,6 +53,8 @@ defmodule Watchman.CLI do
           IO.puts("~ #{ticker} (already tracked)")
       end
     end
+
+    Watchman.Cache.update_tickers()
   end
 
   defp parse_ticker_type(raw) do
@@ -68,17 +72,21 @@ defmodule Watchman.CLI do
     end
   end
 
+  @known_etfs ~w(BOVA11 IVVB11 SMAL11 DIVO11 FIND11 HASH11 XFIX11 GOLD11 MATB11 IMAB11 FIXA11)
+
   defp detect_type(ticker) do
-    # FIIs typically end in 11 (e.g., MXRF11, HGLG11, XPLG11)
-    if Regex.match?(~r/\d{2}$/, ticker) and String.ends_with?(ticker, "11") do
-      "fii"
-    else
-      "acao"
+    upper = String.upcase(ticker)
+
+    cond do
+      upper in @known_etfs -> "acao"
+      String.ends_with?(upper, "11") -> "fii"
+      true -> "acao"
     end
   end
 
   defp cmd_list do
     assets = Repo.all(from a in Asset, where: a.active == true, order_by: a.ticker)
+    Watchman.Cache.update_tickers()
 
     if assets == [] do
       IO.puts("No assets tracked. Use: wm assets TICKER1 TICKER2")
@@ -113,10 +121,11 @@ defmodule Watchman.CLI do
           IO.puts("- #{ticker}")
       end
     end
+
+    Watchman.Cache.update_tickers()
   end
 
   defp cmd_run(_opts) do
-    # Will be wired to Pipeline.run/0 in step 5
     IO.puts("Running analysis...")
     Watchman.Pipeline.run()
   end
@@ -214,22 +223,23 @@ defmodule Watchman.CLI do
     unless File.exists?(log_path) do
       IO.puts("No log file found at #{log_path}")
       IO.puts("Logs are created after running: wm run")
-      System.halt(0)
     end
 
-    cond do
-      parsed[:follow] ->
-        IO.puts("Following #{log_path} (Ctrl+C to stop)\n")
-        System.cmd("tail", ["-f", log_path], into: IO.stream())
+    if File.exists?(log_path) do
+      cond do
+        parsed[:follow] ->
+          IO.puts("Following #{log_path} (Ctrl+C to stop)\n")
+          System.cmd("tail", ["-f", log_path], into: IO.stream())
 
-      parsed[:lines] ->
-        n = to_string(parsed[:lines])
-        {output, _} = System.cmd("tail", ["-n", n, log_path])
-        IO.write(output)
+        parsed[:lines] ->
+          n = to_string(parsed[:lines])
+          {output, _} = System.cmd("tail", ["-n", n, log_path])
+          IO.write(output)
 
-      true ->
-        {output, _} = System.cmd("tail", ["-n", "50", log_path])
-        IO.write(output)
+        true ->
+          {output, _} = System.cmd("tail", ["-n", "50", log_path])
+          IO.write(output)
+      end
     end
   end
 
@@ -271,6 +281,7 @@ defmodule Watchman.CLI do
 
     if period != :none do
       Watchman.Retro.generate(period)
+      Watchman.Cache.update_retro_ids()
     end
   end
 
@@ -397,6 +408,32 @@ defmodule Watchman.CLI do
       wm retro -m                 Generate monthly retrospective
       wm retro list               List all retrospectives
       wm retro show ID            Show a specific retrospective
+      wm update                   Pull latest version from GitHub
     """)
+  end
+
+  defp cmd_update do
+    project_dir = System.get_env("WATCHMAN_INSTALL_DIR") || File.cwd!()
+
+    IO.puts("Updating watchman...")
+
+    case System.cmd("git", ["pull", "--rebase"], cd: project_dir, stderr_to_stdout: true) do
+      {output, 0} ->
+        IO.puts(output)
+        IO.puts("Fetching dependencies...")
+
+        case System.cmd("mix", ["deps.get"], cd: project_dir, stderr_to_stdout: true) do
+          {_, 0} ->
+            IO.puts("Running migrations...")
+            System.cmd("mix", ["ecto.migrate"], cd: project_dir, stderr_to_stdout: true)
+            IO.puts("\n✓ Watchman updated successfully.")
+
+          {err, _} ->
+            IO.puts("Failed to fetch deps: #{err}")
+        end
+
+      {output, _} ->
+        IO.puts("Update failed:\n#{output}")
+    end
   end
 end

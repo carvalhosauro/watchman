@@ -40,7 +40,7 @@ defmodule Watchman.Retro do
 
   defp date_range(:monthly) do
     today = Date.utc_today()
-    start_date = Date.add(today, -30)
+    start_date = Date.beginning_of_month(today)
     {start_date, today}
   end
 

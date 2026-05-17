@@ -2,6 +2,8 @@
 # Zsh completion for wm (watchman)
 # Install: eval "$(wm completions zsh)"
 
+_WM_CACHE_DIR="${HOME}/.local/share/watchman/cache"
+
 _wm() {
   local -a commands
   commands=(
@@ -16,6 +18,7 @@ _wm() {
     'retro:Generate or view retrospectives'
     'logs:View log file'
     'completions:Output shell completion script'
+    'update:Pull latest version from GitHub'
   )
 
   _arguments -C \
@@ -30,14 +33,14 @@ _wm() {
       case "${words[1]}" in
         remove)
           local -a tickers
-          tickers=(${(f)"$(wm _complete_tickers 2>/dev/null)"})
+          [[ -f "${_WM_CACHE_DIR}/tickers" ]] && tickers=(${(f)"$(cat "${_WM_CACHE_DIR}/tickers")"})
           _describe 'ticker' tickers
           ;;
         show)
           local -a tickers
-          tickers=(${(f)"$(wm _complete_tickers 2>/dev/null)"})
+          [[ -f "${_WM_CACHE_DIR}/tickers" ]] && tickers=(${(f)"$(cat "${_WM_CACHE_DIR}/tickers")"})
           _alternative \
-            'tickers:ticker:(${tickers})' \
+            "tickers:ticker:($tickers)" \
             'flags:flag:(--last -l)'
           ;;
         retro)
@@ -52,24 +55,30 @@ _wm() {
           )
           if [[ "${words[2]}" == "show" ]]; then
             local -a ids
-            ids=(${(f)"$(wm _complete_retro_ids 2>/dev/null)"})
+            [[ -f "${_WM_CACHE_DIR}/retro_ids" ]] && ids=(${(f)"$(cat "${_WM_CACHE_DIR}/retro_ids")"})
             _describe 'id' ids
           else
             _describe 'retro command' retro_cmds
           fi
           ;;
         schedule)
-          _describe 'subcommand' '(status:Show\ schedule\ status)'
+          local -a subcmds
+          subcmds=('status:Show schedule status')
+          _describe 'subcommand' subcmds
           ;;
         logs)
-          _describe 'flag' '(-f:Follow\ in\ real-time -n:Show\ last\ N\ lines --follow:Follow --lines:Lines)'
+          local -a flags
+          flags=('-f:Follow in real-time' '-n:Show last N lines' '--follow:Follow' '--lines:Lines')
+          _describe 'flag' flags
           ;;
         completions)
-          _describe 'shell' '(bash:Bash\ completion zsh:Zsh\ completion)'
+          local -a shells
+          shells=('bash:Bash completion' 'zsh:Zsh completion')
+          _describe 'shell' shells
           ;;
       esac
       ;;
   esac
 }
 
-_wm "$@"
+compdef _wm wm

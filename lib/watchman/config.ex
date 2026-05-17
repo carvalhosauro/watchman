@@ -1,5 +1,5 @@
 defmodule Watchman.Config do
-  @moduledoc "Configuration reader for env vars, keyring, and TOML."
+  @moduledoc "Configuration loading and access."
 
   @config_path "~/.config/watchman/config.toml"
 
@@ -91,7 +91,7 @@ defmodule Watchman.Config do
   # Pipeline settings
 
   def max_concurrency do
-    toml_get(["pipeline", "max_concurrency"]) || 10
+    toml_get(["pipeline", "max_concurrency"]) || 3
   end
 
   def task_timeout do

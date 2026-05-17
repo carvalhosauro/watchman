@@ -31,7 +31,8 @@ defmodule Watchman.Parser do
   defp extract_analysis(blocks) do
     text =
       blocks
-      |> Enum.find(&match?(%{"type" => "text"}, &1))
+      |> Enum.filter(&match?(%{"type" => "text"}, &1))
+      |> List.last()
       |> case do
         %{"text" => text} -> text
         _ -> ""

@@ -2,6 +2,22 @@
 # Bash completion for wm (watchman)
 # Install: eval "$(wm completions bash)"
 
+_WM_CACHE_DIR="${HOME}/.local/share/watchman/cache"
+
+_wm_cached_tickers() {
+  local cache="${_WM_CACHE_DIR}/tickers"
+  if [[ -f "$cache" ]]; then
+    cat "$cache"
+  fi
+}
+
+_wm_cached_retro_ids() {
+  local cache="${_WM_CACHE_DIR}/retro_ids"
+  if [[ -f "$cache" ]]; then
+    cat "$cache"
+  fi
+}
+
 _wm_completions() {
   local cur prev words
   COMPREPLY=()
@@ -9,7 +25,7 @@ _wm_completions() {
   prev="${COMP_WORDS[COMP_CWORD-1]}"
 
   # Top-level commands
-  local commands="setup schedule unschedule assets list remove run show retro logs completions"
+  local commands="setup schedule unschedule assets list remove run show retro logs completions update"
 
   case "${COMP_CWORD}" in
     1)
@@ -19,12 +35,12 @@ _wm_completions() {
       case "${prev}" in
         remove)
           local tickers
-          tickers=$(wm _complete_tickers 2>/dev/null)
+          tickers=$(_wm_cached_tickers)
           COMPREPLY=($(compgen -W "${tickers}" -- "${cur}"))
           ;;
         show)
           local tickers
-          tickers=$(wm _complete_tickers 2>/dev/null)
+          tickers=$(_wm_cached_tickers)
           COMPREPLY=($(compgen -W "${tickers} --last -l" -- "${cur}"))
           ;;
         retro)
@@ -49,16 +65,33 @@ _wm_completions() {
         retro)
           if [[ "${prev}" == "show" ]]; then
             local ids
-            ids=$(wm _complete_retro_ids 2>/dev/null)
+            ids=$(_wm_cached_retro_ids)
             COMPREPLY=($(compgen -W "${ids}" -- "${cur}"))
           fi
           ;;
         remove)
           local tickers
-          tickers=$(wm _complete_tickers 2>/dev/null)
+          tickers=$(_wm_cached_tickers)
           COMPREPLY=($(compgen -W "${tickers}" -- "${cur}"))
           ;;
+        show)
+          if [[ "${prev}" != "-l" && "${prev}" != "--last" ]]; then
+            local tickers
+            tickers=$(_wm_cached_tickers)
+            COMPREPLY=($(compgen -W "${tickers} --last -l" -- "${cur}"))
+          fi
+          ;;
         *)
+          ;;
+      esac
+      ;;
+    *)
+      local cmd="${COMP_WORDS[1]}"
+      case "${cmd}" in
+        remove)
+          local tickers
+          tickers=$(_wm_cached_tickers)
+          COMPREPLY=($(compgen -W "${tickers}" -- "${cur}"))
           ;;
       esac
       ;;

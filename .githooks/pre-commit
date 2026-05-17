@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Pre-commit hook: auto-format staged Elixir files
+# Install: ./bin/setup-hooks
+
+set -e
+
+# Get staged .ex and .exs files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ex|exs)$' || true)
+
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+# Format staged files
+mix format $STAGED_FILES
+
+# Re-stage formatted files
+echo "$STAGED_FILES" | xargs git add
+
+echo "✓ Formatted $(echo "$STAGED_FILES" | wc -l | tr -d ' ') file(s)"

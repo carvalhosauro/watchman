@@ -37,8 +37,20 @@ defmodule Watchman.MixProject do
 
   defp aliases do
     [
-      setup: ["deps.get", "ecto.create", "ecto.migrate"]
+      setup: ["deps.get", "ecto.create", "ecto.migrate", "cmd ./bin/setup-hooks"],
+      lint: ["credo --strict"],
+      quality: [
+        "format --check-formatted",
+        "compile --warnings-as-errors",
+        "credo --strict",
+        "test"
+      ],
+      ci: ["deps.get", "quality"]
     ]
+  end
+
+  def cli do
+    [preferred_envs: [quality: :test, ci: :test]]
   end
 
   defp deps do
