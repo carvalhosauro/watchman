@@ -1,8 +1,11 @@
 defmodule Watchman.Pipeline do
+  @moduledoc "Parallel asset analysis orchestrator."
+
   require Logger
 
+  alias Watchman.Market.{Brapi, Yfinance}
+  alias Watchman.Models.{Analysis, Asset, NewsItem, PriceSnapshot}
   alias Watchman.Repo
-  alias Watchman.Models.{Asset, PriceSnapshot, NewsItem, Analysis}
   import Ecto.Query
 
   def run do
@@ -62,7 +65,10 @@ defmodule Watchman.Pipeline do
          {:ok, analysis_data, news_items} <- call_ai(asset, snapshot),
          {:ok, _analysis} <- persist_analysis(asset, snapshot, analysis_data),
          :ok <- persist_news(asset, news_items) do
-      Logger.info("#{asset.ticker}: #{analysis_data.recommendation} (#{analysis_data.tokens_used || 0} tokens)")
+      Logger.info(
+        "#{asset.ticker}: #{analysis_data.recommendation} (#{analysis_data.tokens_used || 0} tokens)"
+      )
+
       IO.puts("  ✓ #{asset.ticker} — #{analysis_data.recommendation}")
       {:ok, asset.ticker, analysis_data.recommendation}
     else
@@ -86,13 +92,16 @@ defmodule Watchman.Pipeline do
         {:ok, data}
 
       {:error, reason} ->
-        Logger.warning("#{asset.ticker}: primary provider failed (#{inspect(reason)}), trying fallback")
+        Logger.warning(
+          "#{asset.ticker}: primary provider failed (#{inspect(reason)}), trying fallback"
+        )
+
         try_fallback(provider, asset.ticker)
     end
   end
 
-  defp try_fallback(Watchman.Market.Brapi, ticker), do: Watchman.Market.Yfinance.fetch(ticker)
-  defp try_fallback(Watchman.Market.Yfinance, ticker), do: Watchman.Market.Brapi.fetch(ticker)
+  defp try_fallback(Brapi, ticker), do: Yfinance.fetch(ticker)
+  defp try_fallback(Yfinance, ticker), do: Brapi.fetch(ticker)
   defp try_fallback(_, _ticker), do: {:error, :price_fetch, "all providers failed"}
 
   defp call_ai(asset, snapshot) do

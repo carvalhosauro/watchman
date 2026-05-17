@@ -1,4 +1,6 @@
 defmodule Watchman.Market.Yfinance do
+  @moduledoc "Yahoo Finance market data provider."
+
   @behaviour Watchman.Market.Provider
 
   @base_url "https://query1.finance.yahoo.com/v8/finance/chart"
@@ -31,12 +33,13 @@ defmodule Watchman.Market.Yfinance do
         Float.round((price - previous_close) / previous_close * 100, 2)
       end
 
-    {:ok, %{
-      price: price,
-      variation_day: variation_day,
-      variation_week: nil,
-      variation_month: nil
-    }}
+    {:ok,
+     %{
+       price: price,
+       variation_day: variation_day,
+       variation_week: nil,
+       variation_month: nil
+     }}
   end
 
   defp parse_yahoo_response(_), do: {:error, :invalid_yahoo_response}

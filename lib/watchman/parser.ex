@@ -1,4 +1,6 @@
 defmodule Watchman.Parser do
+  @moduledoc "Extracts structured analysis and news from AI responses."
+
   @doc "Extracts structured analysis and news items from Claude API response"
   def extract(%{content: content_blocks, tokens: tokens}) do
     news = extract_news(content_blocks)
@@ -54,12 +56,14 @@ defmodule Watchman.Parser do
           is_specific_problem: false,
           macro_context: nil,
           recommendation: "investigar",
-          justification: "Falha ao processar resposta da IA. Resposta bruta: #{String.slice(text, 0..500)}"
+          justification:
+            "Falha ao processar resposta da IA. Resposta bruta: #{String.slice(text, 0..500)}"
         }
     end
   end
 
   defp extract_domain(nil), do: nil
+
   defp extract_domain(url) do
     case URI.parse(url) do
       %URI{host: host} when is_binary(host) -> host
@@ -68,9 +72,12 @@ defmodule Watchman.Parser do
   end
 
   defp parse_date(nil), do: nil
+
   defp parse_date(date_str) when is_binary(date_str) do
     case DateTime.from_iso8601(date_str) do
-      {:ok, dt, _} -> dt
+      {:ok, dt, _} ->
+        dt
+
       _ ->
         case Date.from_iso8601(date_str) do
           {:ok, d} -> DateTime.new!(d, ~T[00:00:00], "Etc/UTC")

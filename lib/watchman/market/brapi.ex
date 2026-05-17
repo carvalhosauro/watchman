@@ -1,4 +1,6 @@
 defmodule Watchman.Market.Brapi do
+  @moduledoc "Brapi.dev market data provider."
+
   @behaviour Watchman.Market.Provider
 
   @base_url "https://brapi.dev/api/quote"
@@ -10,12 +12,13 @@ defmodule Watchman.Market.Brapi do
 
     case Req.get(url, params: [token: token]) do
       {:ok, %Req.Response{status: 200, body: %{"results" => [result | _]}}} ->
-        {:ok, %{
-          price: result["regularMarketPrice"],
-          variation_day: result["regularMarketChangePercent"],
-          variation_week: get_in(result, ["historicalDataPrice"]) |> calc_weekly_var(),
-          variation_month: get_in(result, ["historicalDataPrice"]) |> calc_monthly_var()
-        }}
+        {:ok,
+         %{
+           price: result["regularMarketPrice"],
+           variation_day: result["regularMarketChangePercent"],
+           variation_week: get_in(result, ["historicalDataPrice"]) |> calc_weekly_var(),
+           variation_month: get_in(result, ["historicalDataPrice"]) |> calc_monthly_var()
+         }}
 
       {:ok, %Req.Response{status: status, body: body}} ->
         {:error, {:brapi, status, body}}

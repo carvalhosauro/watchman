@@ -11,4 +11,5 @@
 *.db-wal
 *.db-shm
 /test/watchman_test.db*
+/cover/
 .omc/

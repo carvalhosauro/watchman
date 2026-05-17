@@ -1,4 +1,6 @@
 defmodule Watchman.AI.Claude do
+  @moduledoc "Claude (Anthropic) AI provider with web search."
+
   @behaviour Watchman.AI.Provider
 
   @api_url "https://api.anthropic.com/v1/messages"
@@ -18,7 +20,7 @@ defmodule Watchman.AI.Claude do
       {:ok, %Req.Response{status: 200, body: resp_body}} ->
         tokens =
           get_in(resp_body, ["usage", "input_tokens"]) +
-          get_in(resp_body, ["usage", "output_tokens"])
+            get_in(resp_body, ["usage", "output_tokens"])
 
         Watchman.Parser.extract(%{content: resp_body["content"], tokens: tokens})
 
@@ -48,6 +50,7 @@ defmodule Watchman.AI.Claude do
             %{"text" => text} -> {:ok, text}
             _ -> {:error, :no_text_in_response}
           end
+
         text
 
       {:ok, %Req.Response{status: status, body: resp_body}} ->

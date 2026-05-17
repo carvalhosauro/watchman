@@ -1,4 +1,6 @@
 defmodule Watchman.AI.Deepseek do
+  @moduledoc "DeepSeek AI provider (OpenAI-compatible)."
+
   @behaviour Watchman.AI.Provider
 
   @api_url "https://api.deepseek.com/chat/completions"
@@ -90,7 +92,8 @@ defmodule Watchman.AI.Deepseek do
           is_specific_problem: false,
           macro_context: nil,
           recommendation: "investigar",
-          justification: "Falha ao processar resposta da IA. Resposta bruta: #{String.slice(text, 0..500)}",
+          justification:
+            "Falha ao processar resposta da IA. Resposta bruta: #{String.slice(text, 0..500)}",
           tokens_used: tokens
         }
     end

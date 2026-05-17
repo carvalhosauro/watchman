@@ -5,7 +5,8 @@ defmodule Watchman.Models.Asset do
   schema "assets" do
     field :ticker, :string
     field :name, :string
-    field :type, :string  # "acao" or "fii"
+    # "acao" or "fii"
+    field :type, :string
     field :active, :boolean, default: true
 
     has_many :price_snapshots, Watchman.Models.PriceSnapshot

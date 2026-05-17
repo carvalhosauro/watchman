@@ -1,6 +1,9 @@
 defmodule Watchman.Retro do
+  @moduledoc "Retrospective generation from stored analyses."
+
+  alias Watchman.AI
+  alias Watchman.Models.{Analysis, Asset, NewsItem, PriceSnapshot, Retrospective}
   alias Watchman.Repo
-  alias Watchman.Models.{Asset, Analysis, PriceSnapshot, NewsItem, Retrospective}
   import Ecto.Query
 
   def generate(period_type) when period_type in [:weekly, :monthly] do
@@ -16,7 +19,7 @@ defmodule Watchman.Retro do
     else
       prompt = build_prompt(data, period_type, start_date, end_date)
 
-      case Watchman.AI.Factory.provider().generate_retro(prompt) do
+      case AI.Factory.provider().generate_retro(prompt) do
         {:ok, content} ->
           persist_retro(period_type, start_date, end_date, content)
           IO.puts(content)
@@ -47,9 +50,12 @@ defmodule Watchman.Retro do
 
     Repo.all(
       from a in Analysis,
-        join: asset in Asset, on: a.asset_id == asset.id,
-        join: s in PriceSnapshot, on: a.snapshot_id == s.id,
-        left_join: n in NewsItem, on: n.asset_id == asset.id and n.fetched_at >= ^start_dt and n.fetched_at <= ^end_dt,
+        join: asset in Asset,
+        on: a.asset_id == asset.id,
+        join: s in PriceSnapshot,
+        on: a.snapshot_id == s.id,
+        left_join: n in NewsItem,
+        on: n.asset_id == asset.id and n.fetched_at >= ^start_dt and n.fetched_at <= ^end_dt,
         where: a.analyzed_at >= ^start_dt and a.analyzed_at <= ^end_dt,
         select: %{
           ticker: asset.ticker,
@@ -74,11 +80,11 @@ defmodule Watchman.Retro do
 
     assets_text =
       grouped
-      |> Enum.map(fn {ticker, entries} ->
+      |> Enum.map_join("\n---\n", fn {ticker, entries} ->
         analyses_text =
           entries
           |> Enum.uniq_by(& &1.analyzed_at)
-          |> Enum.map(fn e ->
+          |> Enum.map_join("\n", fn e ->
             """
             - Data: #{e.analyzed_at}
               Preço: R$ #{e.price}, Variação dia: #{e.variation_day || "N/A"}%
@@ -89,14 +95,12 @@ defmodule Watchman.Retro do
               Justificativa: #{e.justification}
             """
           end)
-          |> Enum.join("\n")
 
         news_text =
           entries
           |> Enum.filter(& &1.news_title)
           |> Enum.uniq_by(& &1.news_title)
-          |> Enum.map(fn e -> "  - #{e.news_title} (#{e.news_source})" end)
-          |> Enum.join("\n")
+          |> Enum.map_join("\n", fn e -> "  - #{e.news_title} (#{e.news_source})" end)
 
         """
         ## #{ticker} (#{List.first(entries).asset_type || "tipo desconhecido"})
@@ -106,7 +110,6 @@ defmodule Watchman.Retro do
         #{if news_text != "", do: "Notícias:\n#{news_text}", else: ""}
         """
       end)
-      |> Enum.join("\n---\n")
 
     """
     Gere uma retrospectiva #{period_type} para o período de #{start_date} a #{end_date}.

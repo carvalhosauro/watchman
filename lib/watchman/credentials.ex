@@ -1,4 +1,6 @@
 defmodule Watchman.Credentials do
+  @moduledoc "System keyring interface for secure credential storage."
+
   @service "watchman"
 
   @doc "Get a credential by key. Returns nil if not found."
@@ -110,14 +112,16 @@ defmodule Watchman.Credentials do
   # macOS — Keychain via security
 
   defp macos_get(key) do
-    case System.cmd("security", [
-           "find-generic-password",
-           "-a",
-           @service,
-           "-s",
-           key,
-           "-w"
-         ],
+    case System.cmd(
+           "security",
+           [
+             "find-generic-password",
+             "-a",
+             @service,
+             "-s",
+             key,
+             "-w"
+           ],
            stderr_to_stdout: true
          ) do
       {value, 0} ->
@@ -133,16 +137,18 @@ defmodule Watchman.Credentials do
 
   defp macos_put(key, value) do
     # -U flag updates if exists
-    case System.cmd("security", [
-           "add-generic-password",
-           "-a",
-           @service,
-           "-s",
-           key,
-           "-w",
-           value,
-           "-U"
-         ],
+    case System.cmd(
+           "security",
+           [
+             "add-generic-password",
+             "-a",
+             @service,
+             "-s",
+             key,
+             "-w",
+             value,
+             "-U"
+           ],
            stderr_to_stdout: true
          ) do
       {_, 0} -> :ok
@@ -153,13 +159,15 @@ defmodule Watchman.Credentials do
   end
 
   defp macos_delete(key) do
-    case System.cmd("security", [
-           "delete-generic-password",
-           "-a",
-           @service,
-           "-s",
-           key
-         ],
+    case System.cmd(
+           "security",
+           [
+             "delete-generic-password",
+             "-a",
+             @service,
+             "-s",
+             key
+           ],
            stderr_to_stdout: true
          ) do
       {_, 0} -> :ok

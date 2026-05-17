@@ -1,4 +1,6 @@
 defmodule Watchman.Config do
+  @moduledoc "Configuration reader for env vars, keyring, and TOML."
+
   @config_path "~/.config/watchman/config.toml"
 
   def load do
@@ -7,7 +9,9 @@ defmodule Watchman.Config do
     toml =
       if File.exists?(path) do
         case Toml.decode_file(path) do
-          {:ok, data} -> data
+          {:ok, data} ->
+            data
+
           {:error, reason} ->
             IO.puts("Warning: failed to parse #{path}: #{inspect(reason)}")
             %{}
@@ -22,23 +26,39 @@ defmodule Watchman.Config do
   # API keys — priority: env var > keyring > TOML
 
   def anthropic_api_key do
-    get_key("ANTHROPIC_API_KEY", "anthropic_key", ["api", "anthropic_key"],
-      "ANTHROPIC_API_KEY not set. Run: wm setup")
+    get_key(
+      "ANTHROPIC_API_KEY",
+      "anthropic_key",
+      ["api", "anthropic_key"],
+      "ANTHROPIC_API_KEY not set. Run: wm setup"
+    )
   end
 
   def gemini_api_key do
-    get_key("GEMINI_API_KEY", "gemini_key", ["api", "gemini_key"],
-      "GEMINI_API_KEY not set. Run: wm setup")
+    get_key(
+      "GEMINI_API_KEY",
+      "gemini_key",
+      ["api", "gemini_key"],
+      "GEMINI_API_KEY not set. Run: wm setup"
+    )
   end
 
   def deepseek_api_key do
-    get_key("DEEPSEEK_API_KEY", "deepseek_key", ["api", "deepseek_key"],
-      "DEEPSEEK_API_KEY not set. Run: wm setup")
+    get_key(
+      "DEEPSEEK_API_KEY",
+      "deepseek_key",
+      ["api", "deepseek_key"],
+      "DEEPSEEK_API_KEY not set. Run: wm setup"
+    )
   end
 
   def brapi_token do
-    get_key("BRAPI_TOKEN", "brapi_token", ["api", "brapi_token"],
-      "BRAPI_TOKEN not set. Run: wm setup")
+    get_key(
+      "BRAPI_TOKEN",
+      "brapi_token",
+      ["api", "brapi_token"],
+      "BRAPI_TOKEN not set. Run: wm setup"
+    )
   end
 
   # Providers

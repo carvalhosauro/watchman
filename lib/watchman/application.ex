@@ -1,4 +1,6 @@
 defmodule Watchman.Application do
+  @moduledoc "OTP application supervisor with auto-migration."
+
   use Application
 
   @impl true

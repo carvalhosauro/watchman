@@ -122,7 +122,43 @@ wm retro -m                      # monthly retrospective
 
 The database is created automatically on first run at `~/.local/share/watchman/watchman.db`.
 
-watchman also runs on its own, every day, at whatever time you configure.
+---
+
+## Shell Completions
+
+Tab-completion for commands, tickers, and retrospective IDs.
+
+```bash
+# Bash — add to ~/.bashrc
+eval "$(wm completions bash)"
+
+# Zsh — add to ~/.zshrc
+eval "$(wm completions zsh)"
+```
+
+---
+
+## Scheduling
+
+Run analyses automatically every day:
+
+```bash
+wm schedule            # interactive setup (systemd or cron)
+wm schedule status     # check if schedule is active
+wm unschedule          # remove scheduled runs
+```
+
+---
+
+## Logs
+
+```bash
+wm logs                # last 50 lines
+wm logs -f             # follow in real-time
+wm logs -n 100         # last N lines
+```
+
+Logs are stored at `~/.local/share/watchman/logs/watchman.log`.
 
 ---
 
