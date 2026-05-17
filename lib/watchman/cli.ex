@@ -73,7 +73,10 @@ defmodule Watchman.CLI do
   end
 
   defp cmd_show(opts) do
-    {parsed, args, _} = OptionParser.parse(opts, switches: [last: :integer])
+    {parsed, args, _} = OptionParser.parse(opts,
+      switches: [last: :integer],
+      aliases: [l: :last]
+    )
     ticker = List.first(args)
     limit = parsed[:last]
 
@@ -140,7 +143,10 @@ defmodule Watchman.CLI do
 
   defp cmd_retro(opts) do
     # Will be wired to Retro module in step 6
-    {parsed, _, _} = OptionParser.parse(opts, switches: [weekly: :boolean, monthly: :boolean])
+    {parsed, _, _} = OptionParser.parse(opts,
+      switches: [weekly: :boolean, monthly: :boolean],
+      aliases: [w: :weekly, m: :monthly]
+    )
     period = cond do
       parsed[:weekly] -> :weekly
       parsed[:monthly] -> :monthly
