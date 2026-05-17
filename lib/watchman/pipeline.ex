@@ -1,4 +1,6 @@
 defmodule Watchman.Pipeline do
+  require Logger
+
   alias Watchman.Repo
   alias Watchman.Models.{Asset, PriceSnapshot, NewsItem, Analysis}
   import Ecto.Query
@@ -10,6 +12,7 @@ defmodule Watchman.Pipeline do
       IO.puts("No tracked assets. Use: wm assets TICKER1 TICKER2")
       :ok
     else
+      Logger.info("Starting analysis for #{length(assets)} assets")
       IO.puts("Analyzing #{length(assets)} assets...\n")
 
       results =
@@ -59,14 +62,17 @@ defmodule Watchman.Pipeline do
          {:ok, analysis_data, news_items} <- call_ai(asset, snapshot),
          {:ok, _analysis} <- persist_analysis(asset, snapshot, analysis_data),
          :ok <- persist_news(asset, news_items) do
+      Logger.info("#{asset.ticker}: #{analysis_data.recommendation} (#{analysis_data.tokens_used || 0} tokens)")
       IO.puts("  ✓ #{asset.ticker} — #{analysis_data.recommendation}")
       {:ok, asset.ticker, analysis_data.recommendation}
     else
       {:error, step, reason} ->
+        Logger.error("#{asset.ticker}: failed at #{step} — #{inspect(reason)}")
         IO.puts("  ✗ #{asset.ticker} — failed at #{step}: #{inspect(reason)}")
         {:error, asset.ticker, "#{step}: #{inspect(reason)}"}
 
       {:error, reason} ->
+        Logger.error("#{asset.ticker}: #{inspect(reason)}")
         IO.puts("  ✗ #{asset.ticker} — #{inspect(reason)}")
         {:error, asset.ticker, inspect(reason)}
     end
@@ -79,7 +85,8 @@ defmodule Watchman.Pipeline do
       {:ok, data} ->
         {:ok, data}
 
-      {:error, _reason} ->
+      {:error, reason} ->
+        Logger.warning("#{asset.ticker}: primary provider failed (#{inspect(reason)}), trying fallback")
         try_fallback(provider, asset.ticker)
     end
   end

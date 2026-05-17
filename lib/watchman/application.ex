@@ -4,6 +4,7 @@ defmodule Watchman.Application do
   @impl true
   def start(_type, _args) do
     Watchman.Config.load()
+    setup_file_logger()
 
     children = [
       Watchman.Repo
@@ -28,6 +29,36 @@ defmodule Watchman.Application do
       all: true,
       log: false
     )
+  end
+
+  defp setup_file_logger do
+    log_dir = log_path() |> Path.dirname()
+    File.mkdir_p!(log_dir)
+
+    :logger.add_handler(:watchman_file, :logger_std_h, %{
+      config: %{
+        file: log_path() |> String.to_charlist(),
+        max_no_bytes: 10_000_000,
+        max_no_files: 7
+      },
+      formatter:
+        {:logger_formatter,
+         %{
+           template: [:time, ~c" [", :level, ~c"] ", :msg, ~c"\n"]
+         }},
+      level: :info
+    })
+  end
+
+  defp log_path do
+    Path.join([
+      System.get_env("HOME") || "~",
+      ".local",
+      "share",
+      "watchman",
+      "logs",
+      "watchman.log"
+    ])
   end
 
   defp migrations_path do
