@@ -2,6 +2,22 @@
 # Bash completion for wm (watchman)
 # Install: eval "$(wm completions bash)"
 
+_WM_CACHE_DIR="${HOME}/.local/share/watchman/cache"
+
+_wm_cached_tickers() {
+  local cache="${_WM_CACHE_DIR}/tickers"
+  if [[ -f "$cache" ]]; then
+    cat "$cache"
+  fi
+}
+
+_wm_cached_retro_ids() {
+  local cache="${_WM_CACHE_DIR}/retro_ids"
+  if [[ -f "$cache" ]]; then
+    cat "$cache"
+  fi
+}
+
 _wm_completions() {
   local cur prev words
   COMPREPLY=()
@@ -19,12 +35,12 @@ _wm_completions() {
       case "${prev}" in
         remove)
           local tickers
-          tickers=$(wm _complete_tickers 2>/dev/null)
+          tickers=$(_wm_cached_tickers)
           COMPREPLY=($(compgen -W "${tickers}" -- "${cur}"))
           ;;
         show)
           local tickers
-          tickers=$(wm _complete_tickers 2>/dev/null)
+          tickers=$(_wm_cached_tickers)
           COMPREPLY=($(compgen -W "${tickers} --last -l" -- "${cur}"))
           ;;
         retro)
@@ -49,13 +65,13 @@ _wm_completions() {
         retro)
           if [[ "${prev}" == "show" ]]; then
             local ids
-            ids=$(wm _complete_retro_ids 2>/dev/null)
+            ids=$(_wm_cached_retro_ids)
             COMPREPLY=($(compgen -W "${ids}" -- "${cur}"))
           fi
           ;;
         remove)
           local tickers
-          tickers=$(wm _complete_tickers 2>/dev/null)
+          tickers=$(_wm_cached_tickers)
           COMPREPLY=($(compgen -W "${tickers}" -- "${cur}"))
           ;;
         *)

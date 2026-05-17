@@ -2,6 +2,8 @@
 # Zsh completion for wm (watchman)
 # Install: eval "$(wm completions zsh)"
 
+_WM_CACHE_DIR="${HOME}/.local/share/watchman/cache"
+
 _wm() {
   local -a commands
   commands=(
@@ -30,12 +32,12 @@ _wm() {
       case "${words[1]}" in
         remove)
           local -a tickers
-          tickers=(${(f)"$(wm _complete_tickers 2>/dev/null)"})
+          [[ -f "${_WM_CACHE_DIR}/tickers" ]] && tickers=(${(f)"$(cat "${_WM_CACHE_DIR}/tickers")"})
           _describe 'ticker' tickers
           ;;
         show)
           local -a tickers
-          tickers=(${(f)"$(wm _complete_tickers 2>/dev/null)"})
+          [[ -f "${_WM_CACHE_DIR}/tickers" ]] && tickers=(${(f)"$(cat "${_WM_CACHE_DIR}/tickers")"})
           _alternative \
             'tickers:ticker:(${tickers})' \
             'flags:flag:(--last -l)'
@@ -52,7 +54,7 @@ _wm() {
           )
           if [[ "${words[2]}" == "show" ]]; then
             local -a ids
-            ids=(${(f)"$(wm _complete_retro_ids 2>/dev/null)"})
+            [[ -f "${_WM_CACHE_DIR}/retro_ids" ]] && ids=(${(f)"$(cat "${_WM_CACHE_DIR}/retro_ids")"})
             _describe 'id' ids
           else
             _describe 'retro command' retro_cmds

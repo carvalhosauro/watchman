@@ -2,7 +2,9 @@
 # Watchman CLI wrapper — runs via Mix to support NIF dependencies (exqlite)
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Resolve symlinks to find actual project directory
+REAL_SCRIPT="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$REAL_SCRIPT")/.." && pwd)"
 cd "$SCRIPT_DIR"
 
 exec mix run -e "Watchman.CLI.main(System.argv())" -- "$@"

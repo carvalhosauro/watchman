@@ -135,6 +135,8 @@ defmodule Watchman.Retro do
       generated_at: DateTime.utc_now()
     }
 
-    Repo.insert!(Retrospective.changeset(%Retrospective{}, attrs))
+    result = Repo.insert!(Retrospective.changeset(%Retrospective{}, attrs))
+    Watchman.Cache.update_retro_ids()
+    result
   end
 end

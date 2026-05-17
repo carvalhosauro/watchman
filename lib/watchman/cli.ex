@@ -51,6 +51,8 @@ defmodule Watchman.CLI do
           IO.puts("~ #{ticker} (already tracked)")
       end
     end
+
+    Watchman.Cache.update_tickers()
   end
 
   defp parse_ticker_type(raw) do
@@ -79,6 +81,7 @@ defmodule Watchman.CLI do
 
   defp cmd_list do
     assets = Repo.all(from a in Asset, where: a.active == true, order_by: a.ticker)
+    Watchman.Cache.update_tickers()
 
     if assets == [] do
       IO.puts("No assets tracked. Use: wm assets TICKER1 TICKER2")
@@ -113,6 +116,8 @@ defmodule Watchman.CLI do
           IO.puts("- #{ticker}")
       end
     end
+
+    Watchman.Cache.update_tickers()
   end
 
   defp cmd_run(_opts) do
