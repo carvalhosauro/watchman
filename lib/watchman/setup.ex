@@ -138,6 +138,8 @@ defmodule Watchman.Setup do
     Enum.each(keys, fn {key, value} -> store_key(key, value) end)
   end
 
+  defp store_keys(_keys, :config_file), do: :ok
+
   defp store_key(_key, ""), do: :ok
 
   defp store_key(key, value) do
@@ -146,8 +148,6 @@ defmodule Watchman.Setup do
       {:error, reason} -> IO.puts("    Failed to save #{key}: #{inspect(reason)}")
     end
   end
-
-  defp store_keys(_keys, :config_file), do: :ok
 
   defp write_config(ai, market, keys, pipeline, storage) do
     dir = Path.expand(@config_dir)
