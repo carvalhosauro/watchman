@@ -81,4 +81,4 @@ _wm() {
   esac
 }
 
-_wm "$@"
+compdef _wm wm
