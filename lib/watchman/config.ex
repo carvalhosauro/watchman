@@ -1,4 +1,6 @@
 defmodule Watchman.Config do
+  @moduledoc "Configuration loading and access."
+
   @config_path "~/.config/watchman/config.toml"
 
   def load do

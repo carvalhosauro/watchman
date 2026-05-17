@@ -1,8 +1,10 @@
 defmodule Watchman.Pipeline do
+  @moduledoc "Parallel asset analysis orchestrator."
+
   require Logger
 
+  alias Watchman.Models.{Analysis, Asset, NewsItem, PriceSnapshot}
   alias Watchman.Repo
-  alias Watchman.Models.{Asset, PriceSnapshot, NewsItem, Analysis}
   import Ecto.Query
 
   def run do
@@ -91,8 +93,10 @@ defmodule Watchman.Pipeline do
     end
   end
 
-  defp try_fallback(Watchman.Market.Brapi, ticker), do: Watchman.Market.Yfinance.fetch(ticker)
-  defp try_fallback(Watchman.Market.Yfinance, ticker), do: Watchman.Market.Brapi.fetch(ticker)
+  alias Watchman.Market.{Brapi, Yfinance}
+
+  defp try_fallback(Brapi, ticker), do: Yfinance.fetch(ticker)
+  defp try_fallback(Yfinance, ticker), do: Brapi.fetch(ticker)
   defp try_fallback(_, _ticker), do: {:error, "all market providers failed"}
 
   defp call_ai(asset, snapshot) do

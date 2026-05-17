@@ -1,4 +1,6 @@
 defmodule Watchman.Setup do
+  @moduledoc "Interactive configuration wizard."
+
   @config_dir "~/.config/watchman"
   @config_path "~/.config/watchman/config.toml"
 
@@ -101,42 +103,46 @@ defmodule Watchman.Setup do
     }
   end
 
-  defp choose_key_storage(keys) do
-    if map_size(keys) == 0 do
-      :config_file
+  defp choose_key_storage(keys) when map_size(keys) == 0, do: :config_file
+
+  defp choose_key_storage(_keys) do
+    if Watchman.Credentials.available?() do
+      prompt_key_storage()
     else
-      if Watchman.Credentials.available?() do
-        IO.puts("""
+      IO.puts("\n    System keyring not available. Using config file.\n")
+      :config_file
+    end
+  end
 
-        Key Storage
-          [1] System keyring (recommended) — keys never stored as plaintext
-          [2] Config file — encrypted with chmod 600
-        """)
+  defp prompt_key_storage do
+    IO.puts("""
 
-        case prompt("Choose [1-2]", "1") do
-          "1" -> :keyring
-          "2" -> :config_file
-          _ -> :keyring
-        end
-      else
-        IO.puts("\n    System keyring not available. Using config file.\n")
-        :config_file
-      end
+    Key Storage
+      [1] System keyring (recommended) — keys never stored as plaintext
+      [2] Config file — encrypted with chmod 600
+    """)
+
+    case prompt("Choose [1-2]", "1") do
+      "1" -> :keyring
+      "2" -> :config_file
+      _ -> :keyring
     end
   end
 
   defp store_keys(keys, :keyring) do
-    Enum.each(keys, fn {key, value} ->
-      if value != "" do
-        case Watchman.Credentials.put(key, value) do
-          :ok -> IO.puts("    Saved #{key} to keyring")
-          {:error, reason} -> IO.puts("    Failed to save #{key}: #{inspect(reason)}")
-        end
-      end
-    end)
+    Enum.each(keys, fn {key, value} -> store_key(key, value) end)
   end
 
   defp store_keys(_keys, :config_file), do: :ok
+
+  defp store_key(_key, ""), do: :ok
+
+  defp store_key(key, value) do
+    case Watchman.Credentials.put(key, value) do
+      :ok -> IO.puts("    Saved #{key} to keyring")
+      {:error, reason} -> IO.puts("    Failed to save #{key}: #{inspect(reason)}")
+    end
+  end
 
   defp write_config(ai, market, keys, pipeline, storage) do
     dir = Path.expand(@config_dir)
