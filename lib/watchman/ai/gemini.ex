@@ -15,7 +15,7 @@ defmodule Watchman.AI.Gemini do
       generationConfig: %{temperature: 0.7, maxOutputTokens: 4096}
     }
 
-    case Req.post(url, json: body, params: [key: Watchman.Config.gemini_api_key()], receive_timeout: 90_000) do
+    case Req.post(url, json: body, params: [key: Watchman.Config.gemini_api_key()], receive_timeout: 90_000, retry: :transient, max_retries: 3) do
       {:ok, %Req.Response{status: 200, body: resp}} ->
         tokens = get_in(resp, ["usageMetadata", "totalTokenCount"]) || 0
         text = extract_text(resp)
@@ -41,7 +41,7 @@ defmodule Watchman.AI.Gemini do
       generationConfig: %{temperature: 0.7, maxOutputTokens: 4096}
     }
 
-    case Req.post(url, json: body, params: [key: Watchman.Config.gemini_api_key()], receive_timeout: 90_000) do
+    case Req.post(url, json: body, params: [key: Watchman.Config.gemini_api_key()], receive_timeout: 90_000, retry: :transient, max_retries: 3) do
       {:ok, %Req.Response{status: 200, body: resp}} ->
         {:ok, extract_text(resp)}
 

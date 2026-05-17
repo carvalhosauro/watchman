@@ -64,7 +64,9 @@ defmodule Watchman.AI.Deepseek do
         {"authorization", "Bearer #{Watchman.Config.deepseek_api_key()}"},
         {"content-type", "application/json"}
       ],
-      receive_timeout: 90_000
+      receive_timeout: 90_000,
+      retry: :transient,
+      max_retries: 3
     )
   end
 

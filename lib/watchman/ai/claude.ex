@@ -66,7 +66,9 @@ defmodule Watchman.AI.Claude do
         {"anthropic-version", "2025-03-05"},
         {"content-type", "application/json"}
       ],
-      receive_timeout: 90_000
+      receive_timeout: 90_000,
+      retry: :transient,
+      max_retries: 3
     )
   end
 

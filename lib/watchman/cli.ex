@@ -22,18 +22,44 @@ defmodule Watchman.CLI do
   end
 
   defp cmd_assets(tickers) do
-    for ticker <- tickers do
-      ticker = String.upcase(ticker)
+    for raw <- tickers do
+      {ticker, type} = parse_ticker_type(raw)
+
       case Repo.get_by(Asset, ticker: ticker) do
         nil ->
-          {:ok, _} = Repo.insert(Asset.changeset(%Asset{}, %{ticker: ticker}))
-          IO.puts("+ #{ticker}")
+          {:ok, _} = Repo.insert(Asset.changeset(%Asset{}, %{ticker: ticker, type: type}))
+          IO.puts("+ #{ticker} (#{type})")
         %{active: false} = asset ->
-          Repo.update!(Asset.changeset(asset, %{active: true}))
-          IO.puts("+ #{ticker} (reactivated)")
+          Repo.update!(Asset.changeset(asset, %{active: true, type: type}))
+          IO.puts("+ #{ticker} (reactivated, #{type})")
+        %{type: nil} = asset ->
+          Repo.update!(Asset.changeset(asset, %{type: type}))
+          IO.puts("~ #{ticker} (type set: #{type})")
         _existing ->
           IO.puts("~ #{ticker} (already tracked)")
       end
+    end
+  end
+
+  defp parse_ticker_type(raw) do
+    raw = String.upcase(raw)
+
+    case String.split(raw, ":") do
+      [ticker, type] when type in ["ACAO", "FII"] ->
+        {ticker, String.downcase(type)}
+      [ticker] ->
+        {ticker, detect_type(ticker)}
+      _ ->
+        {raw, detect_type(raw)}
+    end
+  end
+
+  defp detect_type(ticker) do
+    # FIIs typically end in 11 (e.g., MXRF11, HGLG11, XPLG11)
+    if Regex.match?(~r/\d{2}$/, ticker) and String.ends_with?(ticker, "11") do
+      "fii"
+    else
+      "acao"
     end
   end
 
