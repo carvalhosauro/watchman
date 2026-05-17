@@ -1,7 +1,7 @@
 defmodule Watchman.Cache do
   @moduledoc "File-based cache for shell completions."
 
-  @cache_dir Path.join([System.get_env("HOME") || "~", ".local", "share", "watchman", "cache"])
+  require Logger
 
   def update_tickers do
     import Ecto.Query
@@ -21,11 +21,17 @@ defmodule Watchman.Cache do
     write("retro_ids", Enum.map_join(ids, "\n", &to_string/1))
   end
 
+  defp cache_dir do
+    Path.join([System.get_env("HOME") || "~", ".local", "share", "watchman", "cache"])
+  end
+
   defp write(filename, content) do
-    dir = Path.expand(@cache_dir)
+    dir = Path.expand(cache_dir())
     File.mkdir_p!(dir)
     File.write!(Path.join(dir, filename), content <> "\n")
   rescue
-    _ -> :ok
+    e ->
+      Logger.warning("Cache write failed: #{inspect(e)}")
+      :ok
   end
 end
