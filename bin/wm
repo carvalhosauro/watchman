@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Watchman CLI wrapper — runs via Mix to support NIF dependencies (exqlite)
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$SCRIPT_DIR"
+
+exec mix run -e "Watchman.CLI.main(System.argv())" -- "$@"

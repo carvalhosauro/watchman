@@ -1,0 +1,25 @@
+# Watchman configuration
+# Copy to ~/.config/watchman/config.toml
+# Environment variables override these values
+
+[api]
+anthropic_key = ""
+gemini_key = ""
+deepseek_key = ""
+brapi_token = ""
+
+[providers]
+# AI provider: "claude" | "gemini" | "deepseek"
+ai = "claude"
+# Market data provider: "brapi" | "yfinance"
+market = "brapi"
+
+[pipeline]
+# Maximum parallel asset analyses
+max_concurrency = 10
+# Timeout per analysis in seconds
+timeout_seconds = 120
+
+[storage]
+# Database path (default: ~/.local/share/watchman/watchman.db)
+# db_path = "/custom/path/watchman.db"
