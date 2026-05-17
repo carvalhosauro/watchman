@@ -1,4 +1,6 @@
 defmodule Watchman.Market.Yfinance do
+  @moduledoc "Yahoo Finance market data provider."
+
   @behaviour Watchman.Market.Provider
 
   @base_url "https://query1.finance.yahoo.com/v8/finance/chart"

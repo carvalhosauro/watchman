@@ -1,4 +1,6 @@
 defmodule Watchman.Market.Provider do
+  @moduledoc "Behaviour for market data providers."
+
   @type price_data :: %{
           price: float(),
           variation_day: float() | nil,

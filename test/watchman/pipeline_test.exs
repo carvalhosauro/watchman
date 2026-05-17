@@ -4,7 +4,7 @@ defmodule Watchman.PipelineTest do
   import Ecto.Query
   import ExUnit.CaptureIO
 
-  alias Watchman.Models.{Asset, Analysis, PriceSnapshot}
+  alias Watchman.Models.{Analysis, Asset, PriceSnapshot}
   alias Watchman.Repo
 
   setup :verify_on_exit!

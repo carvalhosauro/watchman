@@ -1,4 +1,6 @@
 defmodule Watchman.AI.Gemini do
+  @moduledoc "Gemini (Google) AI provider with search grounding."
+
   @behaviour Watchman.AI.Provider
 
   @model "gemini-2.5-flash"

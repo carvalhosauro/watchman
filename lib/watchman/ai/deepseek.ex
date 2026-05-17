@@ -1,4 +1,6 @@
 defmodule Watchman.AI.Deepseek do
+  @moduledoc "DeepSeek AI provider (OpenAI-compatible)."
+
   @behaviour Watchman.AI.Provider
 
   @api_url "https://api.deepseek.com/chat/completions"

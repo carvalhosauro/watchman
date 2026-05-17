@@ -1,4 +1,6 @@
 defmodule Watchman.AI.Claude do
+  @moduledoc "Claude (Anthropic) AI provider with web search."
+
   @behaviour Watchman.AI.Provider
 
   @api_url "https://api.anthropic.com/v1/messages"

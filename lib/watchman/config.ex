@@ -1,4 +1,6 @@
 defmodule Watchman.Config do
+  @moduledoc "Configuration reader for env vars, keyring, and TOML."
+
   @config_path "~/.config/watchman/config.toml"
 
   def load do

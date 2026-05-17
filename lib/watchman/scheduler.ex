@@ -1,4 +1,6 @@
 defmodule Watchman.Scheduler do
+  @moduledoc "Systemd timer and cron setup for automated runs."
+
   defp project_dir do
     System.get_env("WATCHMAN_INSTALL_DIR") || File.cwd!()
   end
@@ -212,23 +214,7 @@ defmodule Watchman.Scheduler do
     case System.cmd("crontab", ["-l"], stderr_to_stdout: true) do
       {content, 0} ->
         if String.contains?(content, "watchman") do
-          cleaned =
-            content
-            |> String.split("\n")
-            |> Enum.reject(&String.contains?(&1, "watchman"))
-            |> Enum.join("\n")
-            |> String.trim()
-
-          tmp = Path.join(System.tmp_dir!(), "watchman_crontab")
-
-          if cleaned == "" do
-            System.cmd("crontab", ["-r"], stderr_to_stdout: true)
-          else
-            File.write!(tmp, cleaned <> "\n")
-            System.cmd("crontab", [tmp], stderr_to_stdout: true)
-            File.rm(tmp)
-          end
-
+          remove_watchman_from_crontab(content)
           IO.puts("  Removed cron entry")
           true
         else
@@ -238,6 +224,28 @@ defmodule Watchman.Scheduler do
       _ ->
         false
     end
+  end
+
+  defp remove_watchman_from_crontab(content) do
+    cleaned =
+      content
+      |> String.split("\n")
+      |> Enum.reject(&String.contains?(&1, "watchman"))
+      |> Enum.join("\n")
+      |> String.trim()
+
+    write_cleaned_crontab(cleaned)
+  end
+
+  defp write_cleaned_crontab("") do
+    System.cmd("crontab", ["-r"], stderr_to_stdout: true)
+  end
+
+  defp write_cleaned_crontab(cleaned) do
+    tmp = Path.join(System.tmp_dir!(), "watchman_crontab")
+    File.write!(tmp, cleaned <> "\n")
+    System.cmd("crontab", [tmp], stderr_to_stdout: true)
+    File.rm(tmp)
   end
 
   # --- status ---
@@ -254,63 +262,69 @@ defmodule Watchman.Scheduler do
     timer_path = Path.join([home, ".config/systemd/user", "watchman.timer"])
 
     if File.exists?(timer_path) do
-      case System.cmd("systemctl", ["--user", "is-active", "watchman.timer"],
-             stderr_to_stdout: true
-           ) do
-        {status, _} ->
-          IO.puts("  systemd timer: #{String.trim(status)}")
-      end
-
-      case System.cmd(
-             "systemctl",
-             ["--user", "show", "watchman.timer", "--property=NextElapseUSecRealtime"],
-             stderr_to_stdout: true
-           ) do
-        {next, 0} ->
-          IO.puts(
-            "  Next run: #{String.trim(next) |> String.replace("NextElapseUSecRealtime=", "")}"
-          )
-
-        _ ->
-          :ok
-      end
-
-      # Last service run result
-      case System.cmd(
-             "systemctl",
-             [
-               "--user",
-               "show",
-               "watchman.service",
-               "--property=ExecMainStatus",
-               "--property=ExecMainStartTimestamp"
-             ],
-             stderr_to_stdout: true
-           ) do
-        {output, 0} ->
-          lines = String.split(output, "\n", trim: true)
-
-          for line <- lines do
-            cond do
-              String.starts_with?(line, "ExecMainStartTimestamp=") ->
-                ts = String.replace(line, "ExecMainStartTimestamp=", "")
-                if ts != "", do: IO.puts("  Last run: #{ts}")
-
-              String.starts_with?(line, "ExecMainStatus=") ->
-                code = String.replace(line, "ExecMainStatus=", "")
-                result = if code == "0", do: "success", else: "exit code #{code}"
-                IO.puts("  Last result: #{result}")
-
-              true ->
-                :ok
-            end
-          end
-
-        _ ->
-          :ok
-      end
+      print_timer_status()
+      print_next_run()
+      print_last_run()
     end
   end
+
+  defp print_timer_status do
+    case System.cmd("systemctl", ["--user", "is-active", "watchman.timer"],
+           stderr_to_stdout: true
+         ) do
+      {status, _} ->
+        IO.puts("  systemd timer: #{String.trim(status)}")
+    end
+  end
+
+  defp print_next_run do
+    case System.cmd(
+           "systemctl",
+           ["--user", "show", "watchman.timer", "--property=NextElapseUSecRealtime"],
+           stderr_to_stdout: true
+         ) do
+      {next, 0} ->
+        IO.puts(
+          "  Next run: #{String.trim(next) |> String.replace("NextElapseUSecRealtime=", "")}"
+        )
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp print_last_run do
+    case System.cmd(
+           "systemctl",
+           [
+             "--user",
+             "show",
+             "watchman.service",
+             "--property=ExecMainStatus",
+             "--property=ExecMainStartTimestamp"
+           ],
+           stderr_to_stdout: true
+         ) do
+      {output, 0} ->
+        output
+        |> String.split("\n", trim: true)
+        |> Enum.each(&print_last_run_line/1)
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp print_last_run_line("ExecMainStartTimestamp=" <> ts) when ts != "" do
+    IO.puts("  Last run: #{ts}")
+  end
+
+  defp print_last_run_line("ExecMainStatus=" <> code) do
+    result = if code == "0", do: "success", else: "exit code #{code}"
+    IO.puts("  Last result: #{result}")
+  end
+
+  defp print_last_run_line(_), do: :ok
 
   defp cron_status do
     case System.cmd("crontab", ["-l"], stderr_to_stdout: true) do
@@ -327,7 +341,8 @@ defmodule Watchman.Scheduler do
 
   defp last_run_status do
     import Ecto.Query
-    alias Watchman.{Repo, Models.Analysis, Models.Asset}
+    alias Watchman.Models.{Analysis, Asset}
+    alias Watchman.Repo
 
     case Repo.one(
            from a in Analysis,

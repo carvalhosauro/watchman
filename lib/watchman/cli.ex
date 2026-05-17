@@ -1,29 +1,30 @@
 defmodule Watchman.CLI do
-  alias Watchman.Models.{Asset, Analysis, PriceSnapshot}
+  @moduledoc "CLI entry point and command dispatch."
+
+  alias Watchman.Models.{Analysis, Asset, PriceSnapshot}
   alias Watchman.Repo
   import Ecto.Query
 
   def main(args) do
     Application.ensure_all_started(:watchman)
-
-    case args do
-      ["assets" | tickers] -> cmd_assets(tickers)
-      ["list"] -> cmd_list()
-      ["remove" | tickers] -> cmd_remove(tickers)
-      ["run" | opts] -> cmd_run(opts)
-      ["show" | opts] -> cmd_show(opts)
-      ["retro" | opts] -> cmd_retro(opts)
-      ["setup"] -> Watchman.Setup.run()
-      ["schedule"] -> Watchman.Scheduler.setup()
-      ["schedule", "status"] -> Watchman.Scheduler.status()
-      ["unschedule"] -> Watchman.Scheduler.teardown()
-      ["logs" | opts] -> cmd_logs(opts)
-      ["completions", shell] -> cmd_completions(shell)
-      ["_complete_tickers"] -> complete_tickers()
-      ["_complete_retro_ids"] -> complete_retro_ids()
-      _ -> print_usage()
-    end
+    dispatch(args)
   end
+
+  defp dispatch(["assets" | tickers]), do: cmd_assets(tickers)
+  defp dispatch(["list"]), do: cmd_list()
+  defp dispatch(["remove" | tickers]), do: cmd_remove(tickers)
+  defp dispatch(["run" | opts]), do: cmd_run(opts)
+  defp dispatch(["show" | opts]), do: cmd_show(opts)
+  defp dispatch(["retro" | opts]), do: cmd_retro(opts)
+  defp dispatch(["setup"]), do: Watchman.Setup.run()
+  defp dispatch(["schedule"]), do: Watchman.Scheduler.setup()
+  defp dispatch(["schedule", "status"]), do: Watchman.Scheduler.status()
+  defp dispatch(["unschedule"]), do: Watchman.Scheduler.teardown()
+  defp dispatch(["logs" | opts]), do: cmd_logs(opts)
+  defp dispatch(["completions", shell]), do: cmd_completions(shell)
+  defp dispatch(["_complete_tickers"]), do: complete_tickers()
+  defp dispatch(["_complete_retro_ids"]), do: complete_retro_ids()
+  defp dispatch(_), do: print_usage()
 
   defp cmd_assets([]) do
     IO.puts("Usage: wm assets TICKER1 TICKER2 ...")
@@ -82,12 +83,16 @@ defmodule Watchman.CLI do
     if assets == [] do
       IO.puts("No assets tracked. Use: wm assets TICKER1 TICKER2")
     else
-      IO.puts("Tracked assets:")
+      print_assets(assets)
+    end
+  end
 
-      for asset <- assets do
-        type_label = if asset.type, do: " (#{asset.type})", else: ""
-        IO.puts("  #{asset.ticker}#{type_label}")
-      end
+  defp print_assets(assets) do
+    IO.puts("Tracked assets:")
+
+    for asset <- assets do
+      type_label = if asset.type, do: " (#{asset.type})", else: ""
+      IO.puts("  #{asset.ticker}#{type_label}")
     end
   end
 
@@ -125,8 +130,28 @@ defmodule Watchman.CLI do
 
     ticker = List.first(args)
     limit = parsed[:last]
+    results = Repo.all(build_show_query(ticker, limit))
 
-    query =
+    if results == [] do
+      print_show_empty(ticker)
+    else
+      for r <- results do
+        IO.puts("""
+        #{r.ticker}  #{format_datetime(r.analyzed_at)}
+          Price: R$ #{r.price}  Var: #{format_var(r.variation_day)}
+          Recommendation: #{r.recommendation}
+          Cause: #{r.cause || "—"}
+          Specific problem: #{r.is_specific_problem}
+          Macro: #{r.macro_context || "—"}
+          Justification: #{r.justification || "—"}
+          Tokens: #{r.tokens_used || 0}  Cost: $#{Float.round((r.cost_usd || 0.0) * 1.0, 4)}
+        """)
+      end
+    end
+  end
+
+  defp build_show_query(ticker, limit) do
+    base =
       from a in Analysis,
         join: asset in Asset,
         on: a.asset_id == asset.id,
@@ -147,41 +172,27 @@ defmodule Watchman.CLI do
           analyzed_at: a.analyzed_at
         }
 
-    query =
-      if ticker do
-        t = String.upcase(ticker)
-        from [a, asset, s] in query, where: asset.ticker == ^t
-      else
-        today = Date.utc_today()
-        start_dt = DateTime.new!(today, ~T[00:00:00], "Etc/UTC")
-        from [a, asset, s] in query, where: a.analyzed_at >= ^start_dt
-      end
-
-    query = if limit, do: from(q in query, limit: ^limit), else: query
-
-    results = Repo.all(query)
-
-    if results == [] do
-      if ticker do
-        IO.puts("No analyses found for #{String.upcase(ticker)}.")
-      else
-        IO.puts("No analyses found for today. Run: wm run")
-      end
-    else
-      for r <- results do
-        IO.puts("""
-        #{r.ticker}  #{format_datetime(r.analyzed_at)}
-          Price: R$ #{r.price}  Var: #{format_var(r.variation_day)}
-          Recommendation: #{r.recommendation}
-          Cause: #{r.cause || "—"}
-          Specific problem: #{r.is_specific_problem}
-          Macro: #{r.macro_context || "—"}
-          Justification: #{r.justification || "—"}
-          Tokens: #{r.tokens_used || 0}  Cost: $#{Float.round((r.cost_usd || 0.0) * 1.0, 4)}
-        """)
-      end
-    end
+    base
+    |> filter_show_by(ticker)
+    |> maybe_limit(limit)
   end
+
+  defp filter_show_by(query, nil) do
+    today = Date.utc_today()
+    start_dt = DateTime.new!(today, ~T[00:00:00], "Etc/UTC")
+    from [a, asset, s] in query, where: a.analyzed_at >= ^start_dt
+  end
+
+  defp filter_show_by(query, ticker) do
+    t = String.upcase(ticker)
+    from [a, asset, s] in query, where: asset.ticker == ^t
+  end
+
+  defp maybe_limit(query, nil), do: query
+  defp maybe_limit(query, limit), do: from(q in query, limit: ^limit)
+
+  defp print_show_empty(nil), do: IO.puts("No analyses found for today. Run: wm run")
+  defp print_show_empty(ticker), do: IO.puts("No analyses found for #{String.upcase(ticker)}.")
 
   defp cmd_logs(opts) do
     {parsed, _, _} =

@@ -1,4 +1,6 @@
 defmodule Watchman.AI.Provider do
+  @moduledoc "Behaviour for AI analysis providers."
+
   @type analysis_result :: %{
           cause: String.t() | nil,
           is_specific_problem: boolean(),

@@ -3,7 +3,7 @@ defmodule Watchman.RetroTest do
   import Mox
   import ExUnit.CaptureIO
 
-  alias Watchman.Models.{Asset, Analysis, PriceSnapshot, Retrospective}
+  alias Watchman.Models.{Analysis, Asset, PriceSnapshot, Retrospective}
   alias Watchman.Repo
   import Ecto.Query
 

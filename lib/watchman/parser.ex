@@ -1,4 +1,6 @@
 defmodule Watchman.Parser do
+  @moduledoc "Extracts structured analysis and news from AI responses."
+
   @doc "Extracts structured analysis and news items from Claude API response"
   def extract(%{content: content_blocks, tokens: tokens}) do
     news = extract_news(content_blocks)

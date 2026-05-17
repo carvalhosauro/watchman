@@ -1,8 +1,10 @@
 defmodule Watchman.Pipeline do
+  @moduledoc "Parallel asset analysis orchestrator."
+
   require Logger
 
+  alias Watchman.Models.{Analysis, Asset, NewsItem, PriceSnapshot}
   alias Watchman.Repo
-  alias Watchman.Models.{Asset, PriceSnapshot, NewsItem, Analysis}
   import Ecto.Query
 
   def run do

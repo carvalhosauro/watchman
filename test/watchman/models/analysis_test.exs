@@ -1,7 +1,7 @@
 defmodule Watchman.Models.AnalysisTest do
   use ExUnit.Case, async: true
 
-  alias Watchman.Models.{Asset, Analysis}
+  alias Watchman.Models.{Analysis, Asset}
   alias Watchman.Repo
 
   setup do

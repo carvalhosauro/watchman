@@ -1,4 +1,6 @@
 defmodule Watchman.Market.Brapi do
+  @moduledoc "Brapi.dev market data provider."
+
   @behaviour Watchman.Market.Provider
 
   @base_url "https://brapi.dev/api/quote"

@@ -3,7 +3,7 @@ defmodule Watchman.CLITest do
 
   import ExUnit.CaptureIO
 
-  alias Watchman.Models.{Asset, Analysis, PriceSnapshot}
+  alias Watchman.Models.{Analysis, Asset, PriceSnapshot}
   alias Watchman.Repo
 
   setup do

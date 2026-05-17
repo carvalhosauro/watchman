@@ -1,4 +1,6 @@
 defmodule Watchman.Credentials do
+  @moduledoc "System keyring interface for secure credential storage."
+
   @service "watchman"
 
   @doc "Get a credential by key. Returns nil if not found."
