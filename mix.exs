@@ -31,7 +31,8 @@ defmodule Watchman.MixProject do
       {:ecto_sql, "~> 3.12"},
       {:req, "~> 0.5"},
       {:jason, "~> 1.4"},
-      {:toml, "~> 0.7"}
+      {:toml, "~> 0.7"},
+      {:mox, "~> 1.0", only: :test}
     ]
   end
 end
