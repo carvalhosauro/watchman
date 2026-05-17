@@ -49,35 +49,75 @@ and still not knowing whether that drop is worth worrying about.
 
 ---
 
+## Install
+
+One line:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/OWNER/watchman/main/install.sh | bash
+```
+
+This will:
+- Check for Elixir/Erlang (guides you to install if missing)
+- Clone the repo to `~/.local/share/watchman`
+- Install dependencies and compile
+- Create `wm` command in `~/.local/bin`
+- Optionally run the setup wizard
+
+### Requirements
+
+- [Elixir](https://elixir-lang.org/install.html) 1.17+
+- Erlang/OTP 27+
+
+### Manual install
+
+```bash
+git clone https://github.com/OWNER/watchman.git ~/.local/share/watchman
+cd ~/.local/share/watchman
+mix deps.get && mix compile
+ln -s ~/.local/share/watchman/bin/wm ~/.local/bin/wm
+wm setup
+```
+
+### Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/OWNER/watchman/main/uninstall.sh | bash
+```
+
+---
+
 ## Setup
 
 ```bash
-# install dependencies
-mix deps.get
-
-# set API keys
-export ANTHROPIC_API_KEY="your-key"
-export BRAPI_TOKEN="your-token"
+wm setup
 ```
+
+Interactive wizard that configures:
+- **AI provider** — Claude, Gemini, or DeepSeek
+- **Market provider** — Brapi or Yahoo Finance
+- **API keys** — stored in system keyring (Linux/macOS) or config file
+- **Pipeline settings** — concurrency and timeouts
+
+API keys are stored securely:
+1. System keyring (recommended) — `secret-tool` on Linux, Keychain on macOS
+2. Config file with `chmod 600` — fallback when keyring unavailable
+3. Environment variables — always override other sources
+
+---
 
 ## CLI
 
 ```bash
-# register assets to track
-./bin/wm assets MXRF11 PETR4 ITUB4
-
-# run analysis manually
-./bin/wm run
-
-# generate a retrospective
-./bin/wm retro --weekly
-./bin/wm retro --monthly
-
-# list tracked assets
-./bin/wm list
-
-# stop tracking an asset
-./bin/wm remove MXRF11
+wm assets MXRF11 PETR4 ITUB4   # register assets (auto-detects FII vs stock)
+wm list                          # list tracked assets
+wm remove MXRF11                # stop tracking
+wm run                           # run analysis for all tracked assets
+wm show                          # show today's analyses
+wm show PETR4                    # show history for a ticker
+wm show -l 5                     # show last 5 analyses
+wm retro -w                      # weekly retrospective
+wm retro -m                      # monthly retrospective
 ```
 
 The database is created automatically on first run at `~/.local/share/watchman/watchman.db`.
