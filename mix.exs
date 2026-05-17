@@ -37,7 +37,7 @@ defmodule Watchman.MixProject do
 
   defp aliases do
     [
-      setup: ["deps.get", "ecto.create", "ecto.migrate"],
+      setup: ["deps.get", "ecto.create", "ecto.migrate", "cmd ./bin/setup-hooks"],
       lint: ["credo --strict"],
       quality: [
         "format --check-formatted",
