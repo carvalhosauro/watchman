@@ -1,5 +1,6 @@
 defmodule Watchman.Market.Factory do
   def provider do
-    Watchman.Config.market_provider()
+    Application.get_env(:watchman, :market_provider_override) ||
+      Watchman.Config.market_provider()
   end
 end

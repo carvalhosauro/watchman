@@ -43,6 +43,9 @@ jobs:
       - name: Compile (warnings as errors)
         run: mix compile --warnings-as-errors
 
+      - name: Credo (code analysis)
+        run: mix credo --strict
+
   test:
     name: Tests
     runs-on: ubuntu-latest

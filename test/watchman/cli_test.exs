@@ -3,7 +3,7 @@ defmodule Watchman.CLITest do
 
   import ExUnit.CaptureIO
 
-  alias Watchman.Models.Asset
+  alias Watchman.Models.{Asset, Analysis, PriceSnapshot}
   alias Watchman.Repo
 
   setup do
@@ -133,6 +133,201 @@ defmodule Watchman.CLITest do
 
       assert output =~ "watchman - financial asset monitor"
       assert output =~ "wm setup"
+    end
+  end
+
+  describe "show command" do
+    test "reports no analyses when database is empty" do
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["show"])
+        end)
+
+      assert output =~ "No analyses found for today"
+    end
+
+    test "reports no analyses for specific ticker" do
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["show", "XPTO3"])
+        end)
+
+      assert output =~ "No analyses found for XPTO3"
+    end
+
+    test "shows analysis when data exists" do
+      asset = Repo.insert!(Asset.changeset(%Asset{}, %{ticker: "SHW13", type: "acao"}))
+
+      snapshot =
+        Repo.insert!(%PriceSnapshot{
+          asset_id: asset.id,
+          price: 42.0,
+          variation_day: -1.5,
+          fetched_at: DateTime.utc_now() |> DateTime.truncate(:second)
+        })
+
+      Repo.insert!(%Analysis{
+        asset_id: asset.id,
+        snapshot_id: snapshot.id,
+        recommendation: "manter",
+        cause: "test cause",
+        justification: "test justification",
+        analyzed_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["show", "SHW13"])
+        end)
+
+      assert output =~ "SHW13"
+      assert output =~ "R$ 42.0"
+      assert output =~ "manter"
+      assert output =~ "test cause"
+    end
+
+    test "respects --last flag" do
+      asset = Repo.insert!(Asset.changeset(%Asset{}, %{ticker: "LSTF3", type: "acao"}))
+
+      for i <- 1..3 do
+        snapshot =
+          Repo.insert!(%PriceSnapshot{
+            asset_id: asset.id,
+            price: 10.0 + i,
+            fetched_at: DateTime.utc_now() |> DateTime.truncate(:second)
+          })
+
+        Repo.insert!(%Analysis{
+          asset_id: asset.id,
+          snapshot_id: snapshot.id,
+          recommendation: "manter",
+          analyzed_at: DateTime.utc_now() |> DateTime.truncate(:second)
+        })
+      end
+
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["show", "--last", "1"])
+        end)
+
+      # Should contain exactly one result
+      assert length(String.split(output, "LSTF3")) == 2
+    end
+  end
+
+  describe "retro command" do
+    test "shows usage when called with no flags" do
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["retro"])
+        end)
+
+      assert output =~ "wm retro -w"
+      assert output =~ "wm retro -m"
+    end
+
+    test "retro list shows message when no retrospectives exist" do
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["retro", "list"])
+        end)
+
+      assert output =~ "No retrospectives yet"
+    end
+
+    test "retro show with invalid ID" do
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["retro", "show", "abc"])
+        end)
+
+      assert output =~ "Invalid ID"
+    end
+
+    test "retro show with non-existent ID" do
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["retro", "show", "99999"])
+        end)
+
+      assert output =~ "not found"
+    end
+
+    test "retro list shows existing retrospectives" do
+      Repo.insert!(%Watchman.Models.Retrospective{
+        period_type: "weekly",
+        start_date: ~D[2026-05-10],
+        end_date: ~D[2026-05-17],
+        content: "test retro",
+        generated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["retro", "list"])
+        end)
+
+      assert output =~ "weekly"
+      assert output =~ "2026-05-10"
+    end
+  end
+
+  describe "completions command" do
+    test "shows usage for invalid shell" do
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["completions", "fish"])
+        end)
+
+      assert output =~ "Usage: wm completions bash | zsh"
+    end
+
+    test "outputs bash completions" do
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["completions", "bash"])
+        end)
+
+      assert output =~ "_wm_completions"
+    end
+
+    test "outputs zsh completions" do
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["completions", "zsh"])
+        end)
+
+      assert output =~ "#compdef wm"
+    end
+  end
+
+  describe "hidden completion helpers" do
+    test "_complete_tickers outputs tracked tickers" do
+      Repo.insert!(Asset.changeset(%Asset{}, %{ticker: "COMP3", type: "acao"}))
+
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["_complete_tickers"])
+        end)
+
+      assert output =~ "COMP3"
+    end
+
+    test "_complete_retro_ids outputs IDs" do
+      Repo.insert!(%Watchman.Models.Retrospective{
+        period_type: "weekly",
+        start_date: ~D[2026-05-01],
+        end_date: ~D[2026-05-07],
+        content: "test",
+        generated_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
+
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["_complete_retro_ids"])
+        end)
+
+      assert output =~ ~r/\d+/
     end
   end
 end

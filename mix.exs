@@ -4,11 +4,27 @@ defmodule Watchman.MixProject do
   def project do
     [
       app: :watchman,
-      version: "0.1.0",
+      version: "0.2.0",
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      aliases: aliases()
+      aliases: aliases(),
+      test_coverage: [
+        summary: [threshold: 60],
+        ignore_modules: [
+          # HTTP wrappers — tested via integration, not unit
+          Watchman.AI.Claude,
+          Watchman.AI.Gemini,
+          Watchman.AI.Deepseek,
+          Watchman.Market.Brapi,
+          Watchman.Market.Yfinance,
+          # Interactive I/O — requires stdin
+          Watchman.Setup,
+          # System commands — requires systemd/cron
+          Watchman.Scheduler
+        ]
+      ],
+      preferred_cli_env: [credo: :test, dialyzer: :test]
     ]
   end
 
@@ -32,7 +48,9 @@ defmodule Watchman.MixProject do
       {:req, "~> 0.5"},
       {:jason, "~> 1.4"},
       {:toml, "~> 0.7"},
-      {:mox, "~> 1.0", only: :test}
+      {:mox, "~> 1.0", only: :test},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 end
