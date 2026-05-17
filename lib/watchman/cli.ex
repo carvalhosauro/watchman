@@ -13,6 +13,7 @@ defmodule Watchman.CLI do
       ["run" | opts] -> cmd_run(opts)
       ["show" | opts] -> cmd_show(opts)
       ["retro" | opts] -> cmd_retro(opts)
+      ["setup"] -> Watchman.Setup.run()
       _ -> print_usage()
     end
   end
@@ -190,15 +191,16 @@ defmodule Watchman.CLI do
     watchman - financial asset monitor
 
     Usage:
+      wm setup                    Interactive configuration wizard
       wm assets TICKER1 TICKER2   Register assets to track
       wm list                     List tracked assets
       wm remove TICKER1           Stop tracking an asset
       wm run                      Run analysis for all tracked assets
       wm show                     Show today's analyses
       wm show TICKER              Show analysis history for a ticker
-      wm show --last 5            Show last 5 analyses
-      wm retro --weekly           Generate weekly retrospective
-      wm retro --monthly          Generate monthly retrospective
+      wm show -l 5                Show last 5 analyses
+      wm retro -w                 Generate weekly retrospective
+      wm retro -m                 Generate monthly retrospective
     """)
   end
 end
