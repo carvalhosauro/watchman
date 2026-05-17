@@ -54,7 +54,7 @@ and still not knowing whether that drop is worth worrying about.
 One line:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/OWNER/watchman/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/carvalhosauro/watchman/main/install.sh | bash
 ```
 
 This will:
@@ -72,7 +72,7 @@ This will:
 ### Manual install
 
 ```bash
-git clone https://github.com/OWNER/watchman.git ~/.local/share/watchman
+git clone https://github.com/carvalhosauro/watchman.git ~/.local/share/watchman
 cd ~/.local/share/watchman
 mix deps.get && mix compile
 ln -s ~/.local/share/watchman/bin/wm ~/.local/bin/wm
@@ -82,7 +82,7 @@ wm setup
 ### Uninstall
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/OWNER/watchman/main/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/carvalhosauro/watchman/main/uninstall.sh | bash
 ```
 
 ---

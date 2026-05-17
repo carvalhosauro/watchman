@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # Watchman installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/OWNER/watchman/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/carvalhosauro/watchman/main/install.sh | bash
 
-REPO="https://github.com/OWNER/watchman.git"
+REPO="https://github.com/carvalhosauro/watchman.git"
 INSTALL_DIR="${WATCHMAN_INSTALL_DIR:-$HOME/.local/share/watchman}"
 BIN_DIR="${WATCHMAN_BIN_DIR:-$HOME/.local/bin}"
 
