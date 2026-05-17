@@ -205,8 +205,10 @@ defmodule Watchman.CLI do
   defp format_var(nil), do: "N/A"
   defp format_var(val), do: "#{val}%"
 
+  defp cmd_retro(["list" | _]), do: retro_list()
+  defp cmd_retro(["show", id | _]), do: retro_show(id)
+
   defp cmd_retro(opts) do
-    # Will be wired to Retro module in step 6
     {parsed, _, _} = OptionParser.parse(opts,
       switches: [weekly: :boolean, monthly: :boolean],
       aliases: [w: :weekly, m: :monthly]
@@ -215,11 +217,66 @@ defmodule Watchman.CLI do
       parsed[:weekly] -> :weekly
       parsed[:monthly] -> :monthly
       true ->
-        IO.puts("Usage: wm retro --weekly | --monthly")
+        IO.puts("""
+        Usage:
+          wm retro -w              Generate weekly retrospective
+          wm retro -m              Generate monthly retrospective
+          wm retro list            List all retrospectives
+          wm retro show ID         Show a specific retrospective
+        """)
         :none
     end
     if period != :none do
       Watchman.Retro.generate(period)
+    end
+  end
+
+  defp retro_list do
+    alias Watchman.Models.Retrospective
+
+    retros = Repo.all(
+      from r in Retrospective,
+        order_by: [desc: r.generated_at],
+        select: %{id: r.id, period_type: r.period_type, start_date: r.start_date, end_date: r.end_date, generated_at: r.generated_at}
+    )
+
+    if retros == [] do
+      IO.puts("No retrospectives yet. Generate one: wm retro -w")
+    else
+      IO.puts("Retrospectives:\n")
+      IO.puts("  ID   Period    Range                    Generated")
+      IO.puts("  ---- -------- ------------------------ -------------------")
+      for r <- retros do
+        id = String.pad_leading(to_string(r.id), 4)
+        period = String.pad_trailing(r.period_type, 8)
+        range = "#{r.start_date} → #{r.end_date}"
+        range_pad = String.pad_trailing(range, 24)
+        generated = format_datetime(r.generated_at)
+        IO.puts("  #{id} #{period} #{range_pad} #{generated}")
+      end
+    end
+  end
+
+  defp retro_show(id_str) do
+    alias Watchman.Models.Retrospective
+
+    case Integer.parse(id_str) do
+      {id, _} ->
+        case Repo.get(Retrospective, id) do
+          nil ->
+            IO.puts("Retrospective ##{id} not found.")
+          retro ->
+            IO.puts("""
+            Retrospective ##{retro.id}
+            Period: #{retro.period_type} (#{retro.start_date} → #{retro.end_date})
+            Generated: #{format_datetime(retro.generated_at)}
+            ─────────────────────────────────────────
+
+            #{retro.content}
+            """)
+        end
+      :error ->
+        IO.puts("Invalid ID. Usage: wm retro show 1")
     end
   end
 
@@ -244,6 +301,8 @@ defmodule Watchman.CLI do
       wm show -l 5                Show last 5 analyses
       wm retro -w                 Generate weekly retrospective
       wm retro -m                 Generate monthly retrospective
+      wm retro list               List all retrospectives
+      wm retro show ID            Show a specific retrospective
     """)
   end
 end
