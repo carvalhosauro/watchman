@@ -23,6 +23,7 @@ defmodule Watchman.CLI do
   defp dispatch(["logs" | opts]), do: cmd_logs(opts)
   defp dispatch(["update"]), do: cmd_update()
   defp dispatch(["completions", shell]), do: cmd_completions(shell)
+  # Debug helpers — completions now use file cache, but these remain for manual testing
   defp dispatch(["_complete_tickers"]), do: complete_tickers()
   defp dispatch(["_complete_retro_ids"]), do: complete_retro_ids()
   defp dispatch(_), do: print_usage()
@@ -280,6 +281,7 @@ defmodule Watchman.CLI do
 
     if period != :none do
       Watchman.Retro.generate(period)
+      Watchman.Cache.update_retro_ids()
     end
   end
 
