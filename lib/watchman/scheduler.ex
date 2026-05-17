@@ -229,6 +229,7 @@ defmodule Watchman.Scheduler do
     IO.puts("")
     systemd_status()
     cron_status()
+    last_run_status()
   end
 
   defp systemd_status do
@@ -243,7 +244,28 @@ defmodule Watchman.Scheduler do
 
       case System.cmd("systemctl", ["--user", "show", "watchman.timer", "--property=NextElapseUSecRealtime"], stderr_to_stdout: true) do
         {next, 0} ->
-          IO.puts("  #{String.trim(next)}")
+          IO.puts("  Next run: #{String.trim(next) |> String.replace("NextElapseUSecRealtime=", "")}")
+        _ -> :ok
+      end
+
+      # Last service run result
+      case System.cmd("systemctl", ["--user", "show", "watchman.service",
+             "--property=ExecMainStatus", "--property=ExecMainStartTimestamp"],
+             stderr_to_stdout: true) do
+        {output, 0} ->
+          lines = String.split(output, "\n", trim: true)
+          for line <- lines do
+            cond do
+              String.starts_with?(line, "ExecMainStartTimestamp=") ->
+                ts = String.replace(line, "ExecMainStartTimestamp=", "")
+                if ts != "", do: IO.puts("  Last run: #{ts}")
+              String.starts_with?(line, "ExecMainStatus=") ->
+                code = String.replace(line, "ExecMainStatus=", "")
+                result = if code == "0", do: "success", else: "exit code #{code}"
+                IO.puts("  Last result: #{result}")
+              true -> :ok
+            end
+          end
         _ -> :ok
       end
     end
@@ -258,6 +280,33 @@ defmodule Watchman.Scheduler do
         |> Enum.each(fn line -> IO.puts("  cron: #{line}") end)
 
       _ -> :ok
+    end
+  end
+
+  defp last_run_status do
+    import Ecto.Query
+    alias Watchman.{Repo, Models.Analysis, Models.Asset}
+
+    case Repo.one(from a in Analysis, order_by: [desc: a.analyzed_at], limit: 1,
+           join: asset in Asset, on: a.asset_id == asset.id,
+           select: %{analyzed_at: a.analyzed_at, count: over(count(a.id))}) do
+      nil ->
+        IO.puts("\n  No analyses found yet. Run: wm run")
+      result ->
+        today = Date.utc_today()
+        date = DateTime.to_date(result.analyzed_at)
+        day_label = cond do
+          date == today -> "today"
+          date == Date.add(today, -1) -> "yesterday"
+          true -> to_string(date)
+        end
+
+        # Count today's analyses
+        start_dt = DateTime.new!(today, ~T[00:00:00], "Etc/UTC")
+        today_count = Repo.one(from a in Analysis, where: a.analyzed_at >= ^start_dt, select: count(a.id))
+
+        IO.puts("\n  Last analysis: #{day_label} at #{Calendar.strftime(result.analyzed_at, "%H:%M")}")
+        IO.puts("  Today's analyses: #{today_count}")
     end
   end
 
