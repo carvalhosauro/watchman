@@ -1,5 +1,5 @@
 defmodule Watchman.CLI do
-  alias Watchman.Models.Asset
+  alias Watchman.Models.{Asset, Analysis, PriceSnapshot}
   alias Watchman.Repo
   import Ecto.Query
 
@@ -11,6 +11,7 @@ defmodule Watchman.CLI do
       ["list"] -> cmd_list()
       ["remove" | tickers] -> cmd_remove(tickers)
       ["run" | opts] -> cmd_run(opts)
+      ["show" | opts] -> cmd_show(opts)
       ["retro" | opts] -> cmd_retro(opts)
       _ -> print_usage()
     end
@@ -71,6 +72,72 @@ defmodule Watchman.CLI do
     Watchman.Pipeline.run()
   end
 
+  defp cmd_show(opts) do
+    {parsed, args, _} = OptionParser.parse(opts, switches: [last: :integer])
+    ticker = List.first(args)
+    limit = parsed[:last]
+
+    query =
+      from a in Analysis,
+        join: asset in Asset, on: a.asset_id == asset.id,
+        join: s in PriceSnapshot, on: a.snapshot_id == s.id,
+        order_by: [desc: a.analyzed_at],
+        select: %{
+          ticker: asset.ticker,
+          price: s.price,
+          variation_day: s.variation_day,
+          recommendation: a.recommendation,
+          cause: a.cause,
+          justification: a.justification,
+          is_specific_problem: a.is_specific_problem,
+          macro_context: a.macro_context,
+          tokens_used: a.tokens_used,
+          cost_usd: a.cost_usd,
+          analyzed_at: a.analyzed_at
+        }
+
+    query =
+      if ticker do
+        t = String.upcase(ticker)
+        from [a, asset, s] in query, where: asset.ticker == ^t
+      else
+        today = Date.utc_today()
+        start_dt = DateTime.new!(today, ~T[00:00:00], "Etc/UTC")
+        from [a, asset, s] in query, where: a.analyzed_at >= ^start_dt
+      end
+
+    query = if limit, do: from(q in query, limit: ^limit), else: query
+
+    results = Repo.all(query)
+
+    if results == [] do
+      if ticker do
+        IO.puts("No analyses found for #{String.upcase(ticker)}.")
+      else
+        IO.puts("No analyses found for today. Run: wm run")
+      end
+    else
+      for r <- results do
+        IO.puts("""
+        #{r.ticker}  #{format_datetime(r.analyzed_at)}
+          Price: R$ #{r.price}  Var: #{format_var(r.variation_day)}
+          Recommendation: #{r.recommendation}
+          Cause: #{r.cause || "—"}
+          Specific problem: #{r.is_specific_problem}
+          Macro: #{r.macro_context || "—"}
+          Justification: #{r.justification || "—"}
+          Tokens: #{r.tokens_used || 0}  Cost: $#{Float.round((r.cost_usd || 0.0) * 1.0, 4)}
+        """)
+      end
+    end
+  end
+
+  defp format_datetime(nil), do: "—"
+  defp format_datetime(dt), do: Calendar.strftime(dt, "%Y-%m-%d %H:%M")
+
+  defp format_var(nil), do: "N/A"
+  defp format_var(val), do: "#{val}%"
+
   defp cmd_retro(opts) do
     # Will be wired to Retro module in step 6
     {parsed, _, _} = OptionParser.parse(opts, switches: [weekly: :boolean, monthly: :boolean])
@@ -95,6 +162,9 @@ defmodule Watchman.CLI do
       wm list                     List tracked assets
       wm remove TICKER1           Stop tracking an asset
       wm run                      Run analysis for all tracked assets
+      wm show                     Show today's analyses
+      wm show TICKER              Show analysis history for a ticker
+      wm show --last 5            Show last 5 analyses
       wm retro --weekly           Generate weekly retrospective
       wm retro --monthly          Generate monthly retrospective
     """)
