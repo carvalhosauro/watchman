@@ -1,6 +1,7 @@
 defmodule Watchman.Retro do
   @moduledoc "Retrospective generation from stored analyses."
 
+  alias Watchman.AI
   alias Watchman.Models.{Analysis, Asset, NewsItem, PriceSnapshot, Retrospective}
   alias Watchman.Repo
   import Ecto.Query
@@ -18,7 +19,7 @@ defmodule Watchman.Retro do
     else
       prompt = build_prompt(data, period_type, start_date, end_date)
 
-      case Watchman.AI.Factory.provider().generate_retro(prompt) do
+      case AI.Factory.provider().generate_retro(prompt) do
         {:ok, content} ->
           persist_retro(period_type, start_date, end_date, content)
           IO.puts(content)

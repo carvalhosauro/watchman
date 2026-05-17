@@ -3,6 +3,7 @@ defmodule Watchman.Pipeline do
 
   require Logger
 
+  alias Watchman.Market.{Brapi, Yfinance}
   alias Watchman.Models.{Analysis, Asset, NewsItem, PriceSnapshot}
   alias Watchman.Repo
   import Ecto.Query
@@ -99,8 +100,8 @@ defmodule Watchman.Pipeline do
     end
   end
 
-  defp try_fallback(Watchman.Market.Brapi, ticker), do: Watchman.Market.Yfinance.fetch(ticker)
-  defp try_fallback(Watchman.Market.Yfinance, ticker), do: Watchman.Market.Brapi.fetch(ticker)
+  defp try_fallback(Brapi, ticker), do: Yfinance.fetch(ticker)
+  defp try_fallback(Yfinance, ticker), do: Brapi.fetch(ticker)
   defp try_fallback(_, _ticker), do: {:error, :price_fetch, "all providers failed"}
 
   defp call_ai(asset, snapshot) do
