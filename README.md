@@ -162,6 +162,16 @@ Logs are stored at `~/.local/share/watchman/logs/watchman.log`.
 
 ---
 
+## Updates
+
+```bash
+wm update              # pull latest version from GitHub and fetch deps
+```
+
+Pulls the latest changes from the main branch, updates dependencies, and recompiles.
+
+---
+
 ## Philosophy
 
 More data is not more clarity.
