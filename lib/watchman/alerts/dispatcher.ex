@@ -23,9 +23,7 @@ defmodule Watchman.Alerts.Dispatcher do
         Logger.info("Alert sent via #{inspect(provider)} for #{ticker}")
 
       {:error, reason} ->
-        Logger.warning(
-          "Alert failed via #{inspect(provider)} for #{ticker}: #{inspect(reason)}"
-        )
+        Logger.warning("Alert failed via #{inspect(provider)} for #{ticker}: #{inspect(reason)}")
     end
   end
 
