@@ -3,6 +3,8 @@ defmodule Watchman.Market.Brapi do
 
   @behaviour Watchman.Market.Provider
 
+  alias Watchman.Market.BrapiUsage
+
   @base_url "https://brapi.dev/api/quote"
 
   @impl true
@@ -12,7 +14,7 @@ defmodule Watchman.Market.Brapi do
 
     case Req.get(url, params: [token: token]) do
       {:ok, %Req.Response{status: 200, body: %{"results" => [result | _]}}} ->
-        Watchman.Market.BrapiUsage.record_call()
+        BrapiUsage.record_call()
 
         {:ok,
          %{

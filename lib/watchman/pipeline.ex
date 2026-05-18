@@ -3,6 +3,7 @@ defmodule Watchman.Pipeline do
 
   require Logger
 
+  alias Watchman.Market.{Brapi, BrapiUsage}
   alias Watchman.Models.{Analysis, Asset, NewsItem, PriceSnapshot}
   alias Watchman.Repo
   import Ecto.Query
@@ -187,8 +188,8 @@ defmodule Watchman.Pipeline do
   end
 
   defp maybe_warn_brapi_usage do
-    if Watchman.Market.Factory.provider() == Watchman.Market.Brapi do
-      case Watchman.Market.BrapiUsage.check_limit() do
+    if Watchman.Market.Factory.provider() == Brapi do
+      case BrapiUsage.check_limit() do
         {:exceeded, count, limit} ->
           Logger.warning(
             "Brapi free tier: #{count}/#{limit} requests used this month — limit exceeded!"
