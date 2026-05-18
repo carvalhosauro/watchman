@@ -1,8 +1,7 @@
 name: Auto Tag Release
 
 on:
-  pull_request:
-    types: [closed]
+  push:
     branches: [main]
 
 permissions:
@@ -12,7 +11,6 @@ jobs:
   tag:
     name: Create Release Tag
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true
 
     steps:
       - uses: actions/checkout@v4
