@@ -14,15 +14,16 @@
 - [x] Show command for stored analyses
 - [x] Retrospectives (weekly/monthly)
 
-## v0.2.0 — Automation & Alerts
+## v0.2.0 — Automation & Alerts (done)
 
 - [x] File logging with rotation (OTP logger_std_h, 10MB, 7 files)
 - [x] Scheduled runs (systemd timer / cron generation)
 - [x] Schedule management (status, unschedule)
 - [x] Log viewer (`wm logs`, `-f`, `-n`)
-- [ ] Telegram alerts on "investigar" or "vender" recommendations
-- [ ] Discord webhook alerts (alternative to Telegram)
-- [ ] Rate limiting for free-tier API compliance
+- [x] Telegram alerts on actionable recommendations (configurable triggers)
+- [x] Discord webhook alerts (alternative or complement to Telegram)
+- [x] Rate limiting for free-tier API compliance
+- [x] Alert CLI commands (`wm alerts test`, `wm alerts status`)
 
 ## v0.3.0 — Portfolio Intelligence
 

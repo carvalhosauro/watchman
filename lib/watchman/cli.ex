@@ -20,6 +20,8 @@ defmodule Watchman.CLI do
   defp dispatch(["schedule"]), do: Watchman.Scheduler.setup()
   defp dispatch(["schedule", "status"]), do: Watchman.Scheduler.status()
   defp dispatch(["unschedule"]), do: Watchman.Scheduler.teardown()
+  defp dispatch(["alerts", "test"]), do: cmd_alerts_test()
+  defp dispatch(["alerts", "status"]), do: cmd_alerts_status()
   defp dispatch(["logs" | opts]), do: cmd_logs(opts)
   defp dispatch(["update"]), do: cmd_update()
   defp dispatch(["completions", shell]), do: cmd_completions(shell)
@@ -202,6 +204,15 @@ defmodule Watchman.CLI do
 
   defp print_show_empty(nil), do: IO.puts("No analyses found for today. Run: wm run")
   defp print_show_empty(ticker), do: IO.puts("No analyses found for #{String.upcase(ticker)}.")
+
+  defp cmd_alerts_test do
+    IO.puts("Testando alertas...\n")
+    Watchman.Alerts.Dispatcher.test_all()
+  end
+
+  defp cmd_alerts_status do
+    Watchman.Alerts.Dispatcher.status()
+  end
 
   defp cmd_logs(opts) do
     {parsed, _, _} =
@@ -392,6 +403,8 @@ defmodule Watchman.CLI do
       wm schedule                  Set up daily automated runs
       wm schedule status           Show schedule status
       wm unschedule                Remove scheduled runs
+      wm alerts test               Verify alert configuration
+      wm alerts status             Show alert settings
       wm logs                      Show last 50 log lines
       wm logs -f                   Follow log in real-time
       wm logs -n 100               Show last N log lines
