@@ -12,6 +12,8 @@ defmodule Watchman.Market.Brapi do
 
     case Req.get(url, params: [token: token]) do
       {:ok, %Req.Response{status: 200, body: %{"results" => [result | _]}}} ->
+        Watchman.Market.BrapiUsage.record_call()
+
         {:ok,
          %{
            price: result["regularMarketPrice"],

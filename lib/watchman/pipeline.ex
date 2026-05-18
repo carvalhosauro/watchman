@@ -8,6 +8,7 @@ defmodule Watchman.Pipeline do
   import Ecto.Query
 
   def run do
+    maybe_warn_brapi_usage()
     assets = Repo.all(from a in Asset, where: a.active == true)
 
     if assets == [] do
@@ -183,6 +184,23 @@ defmodule Watchman.Pipeline do
     end)
 
     :ok
+  end
+
+  defp maybe_warn_brapi_usage do
+    if Watchman.Market.Factory.provider() == Watchman.Market.Brapi do
+      case Watchman.Market.BrapiUsage.check_limit() do
+        {:exceeded, count, limit} ->
+          Logger.warning(
+            "Brapi free tier: #{count}/#{limit} requests used this month — limit exceeded!"
+          )
+
+        {:warning, count, limit} ->
+          Logger.warning("Brapi free tier: #{count}/#{limit} requests used this month")
+
+        {:ok, _, _} ->
+          :ok
+      end
+    end
   end
 
   defp print_summary(results) do
