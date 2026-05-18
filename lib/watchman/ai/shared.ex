@@ -94,7 +94,7 @@ defmodule Watchman.AI.Shared do
     """
   end
 
-  @doc "Formats a variation value. nil → \"N/A\", val → \"val%\""
+  @doc ~S(Formats a variation value. nil → "N/A", val → "val%")
   def format_var(nil), do: "N/A"
   def format_var(val), do: "#{val}%"
 
