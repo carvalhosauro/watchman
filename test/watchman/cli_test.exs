@@ -190,18 +190,23 @@ defmodule Watchman.CLITest do
       asset = Repo.insert!(Asset.changeset(%Asset{}, %{ticker: "LSTF3", type: "acao"}))
 
       for i <- 1..3 do
+        analysis_time =
+          DateTime.utc_now()
+          |> DateTime.add(-3 + i, :day)
+          |> DateTime.truncate(:second)
+
         snapshot =
           Repo.insert!(%PriceSnapshot{
             asset_id: asset.id,
             price: 10.0 + i,
-            fetched_at: DateTime.utc_now() |> DateTime.truncate(:second)
+            fetched_at: analysis_time
           })
 
         Repo.insert!(%Analysis{
           asset_id: asset.id,
           snapshot_id: snapshot.id,
           recommendation: "manter",
-          analyzed_at: DateTime.utc_now() |> DateTime.truncate(:second)
+          analyzed_at: analysis_time
         })
       end
 

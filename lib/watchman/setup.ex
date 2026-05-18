@@ -211,7 +211,14 @@ defmodule Watchman.Setup do
 
   defp prompt_secret(label) do
     IO.write("#{label}: ")
-    :io.get_password() |> to_string() |> String.trim()
+
+    case :io.get_password() do
+      {:error, _} ->
+        IO.gets("") |> String.trim()
+
+      chars ->
+        chars |> to_string() |> String.trim()
+    end
   end
 
   defp parse_int(str, default) do
