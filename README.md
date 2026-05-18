@@ -1,5 +1,7 @@
 # watchman
 
+[![CI](https://github.com/carvalhosauro/watchman/actions/workflows/ci.yml/badge.svg)](https://github.com/carvalhosauro/watchman/actions/workflows/ci.yml)
+
 Markets make noise constantly.
 Bad news, sharp drops, analyst tweets, unexplained movement.
 Most of it is noise. But not always.
@@ -159,6 +161,16 @@ wm logs -n 100         # last N lines
 ```
 
 Logs are stored at `~/.local/share/watchman/logs/watchman.log`.
+
+---
+
+## Updates
+
+```bash
+wm update              # pull latest version from GitHub and fetch deps
+```
+
+Pulls the latest changes from the main branch, updates dependencies, and recompiles.
 
 ---
 

@@ -1,0 +1,85 @@
+name: Deploy to Main PR
+
+on:
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  deploy-pr:
+    name: Update Deploy PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get merged PR info
+        id: merged
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Find the PR that was just merged (triggered this push)
+          PR_JSON=$(gh pr list --state merged --base dev --json number,title,author,mergedAt --limit 5)
+          LATEST=$(echo "$PR_JSON" | jq -r '.[0] | "#\(.number) \(.title) (@\(.author.login))"')
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update deploy PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if deploy PR already exists
+          EXISTING=$(gh pr list --base main --head dev --json number --jq '.[0].number // empty')
+
+          # Build changelog from commits on dev not in main
+          CHANGELOG=$(git log origin/main..origin/dev --oneline --no-merges 2>/dev/null || echo "Initial release")
+
+          # Get list of merged PRs since main
+          MERGED_PRS=$(gh pr list --state merged --base dev --json number,title,author \
+            --jq '.[] | "- #\(.number) \(.title) (@\(.author.login))"' 2>/dev/null || echo "")
+
+          # Count stats
+          COMMIT_COUNT=$(git rev-list --count origin/main..origin/dev 2>/dev/null || echo "?")
+          FILES_CHANGED=$(git diff --stat origin/main..origin/dev 2>/dev/null | tail -1 || echo "")
+
+          BODY=$(cat <<'HEADER'
+          ## Deploy to Main
+
+          Auto-generated PR tracking all changes on `dev` ready for release.
+
+          HEADER
+          )
+
+          BODY="${BODY}
+
+          ### Merged PRs
+          ${MERGED_PRS:-_No PRs merged yet_}
+
+          ### Stats
+          - **Commits:** ${COMMIT_COUNT}
+          - **Summary:** ${FILES_CHANGED}
+
+          ### Commit log
+          \`\`\`
+          ${CHANGELOG}
+          \`\`\`
+
+          ---
+          _Last updated: $(date -u '+%Y-%m-%d %H:%M UTC') by GitHub Actions_"
+
+          if [ -n "$EXISTING" ]; then
+            echo "Updating existing PR #${EXISTING}..."
+            gh pr edit "$EXISTING" --body "$BODY"
+            gh pr comment "$EXISTING" --body "Updated: merged ${{ steps.merged.outputs.latest }}"
+          else
+            echo "Creating new deploy PR..."
+            gh pr create \
+              --base main \
+              --head dev \
+              --title "Deploy to Main" \
+              --body "$BODY"
+          fi

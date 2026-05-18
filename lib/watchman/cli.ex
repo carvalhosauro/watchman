@@ -220,11 +220,6 @@ defmodule Watchman.CLI do
         "watchman.log"
       ])
 
-    unless File.exists?(log_path) do
-      IO.puts("No log file found at #{log_path}")
-      IO.puts("Logs are created after running: wm run")
-    end
-
     if File.exists?(log_path) do
       cond do
         parsed[:follow] ->
@@ -240,6 +235,9 @@ defmodule Watchman.CLI do
           {output, _} = System.cmd("tail", ["-n", "50", log_path])
           IO.write(output)
       end
+    else
+      IO.puts("No log file found at #{log_path}")
+      IO.puts("Logs are created after running: wm run")
     end
   end
 
@@ -417,15 +415,13 @@ defmodule Watchman.CLI do
 
     IO.puts("Updating watchman...")
 
-    case System.cmd("git", ["pull", "--rebase"], cd: project_dir, stderr_to_stdout: true) do
+    case System.cmd("git", ["pull", "--ff-only"], cd: project_dir, stderr_to_stdout: true) do
       {output, 0} ->
         IO.puts(output)
         IO.puts("Fetching dependencies...")
 
         case System.cmd("mix", ["deps.get"], cd: project_dir, stderr_to_stdout: true) do
           {_, 0} ->
-            IO.puts("Running migrations...")
-            System.cmd("mix", ["ecto.migrate"], cd: project_dir, stderr_to_stdout: true)
             IO.puts("\n✓ Watchman updated successfully.")
 
           {err, _} ->
