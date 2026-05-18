@@ -1,5 +1,7 @@
 # watchman
 
+[![CI](https://github.com/carvalhosauro/watchman/actions/workflows/ci.yml/badge.svg)](https://github.com/carvalhosauro/watchman/actions/workflows/ci.yml)
+
 Markets make noise constantly.
 Bad news, sharp drops, analyst tweets, unexplained movement.
 Most of it is noise. But not always.
