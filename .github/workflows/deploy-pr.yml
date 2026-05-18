@@ -1,0 +1,132 @@
+name: Deploy to Main PR
+
+on:
+  push:
+    branches: [dev]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  deploy-pr:
+    name: Update Deploy PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: dev
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get merged PR info
+        id: merged
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_JSON=$(gh pr list --state merged --base dev --json number,title,author,mergedAt --limit 5)
+          LATEST=$(echo "$PR_JSON" | jq -r '.[0] | "#\(.number) \(.title) (@\(.author.login))"')
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+
+      - name: Determine version bump
+        id: bump
+        run: |
+          # Get commits on dev not in main
+          COMMITS=$(git log origin/main..origin/dev --oneline --no-merges 2>/dev/null || echo "")
+
+          if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-f0-9]+ [a-z]+(\(.+\))?!:"; then
+            echo "type=major" >> "$GITHUB_OUTPUT"
+          elif echo "$COMMITS" | grep -qE "^[a-f0-9]+ feat"; then
+            echo "type=minor" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=patch" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump version in mix.exs on dev
+        id: version
+        run: |
+          CURRENT=$(grep -oP 'version: "\K[0-9]+\.[0-9]+\.[0-9]+' mix.exs)
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+          case "${{ steps.bump.outputs.type }}" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+
+          NEW="${MAJOR}.${MINOR}.${PATCH}"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+
+          # Only bump if version changed
+          if [ "$CURRENT" != "$NEW" ]; then
+            sed -i "s/version: \"$CURRENT\"/version: \"$NEW\"/" mix.exs
+            if git diff --quiet mix.exs; then
+              echo "bumped=false" >> "$GITHUB_OUTPUT"
+            else
+              git add mix.exs
+              git commit -m "chore: bump version to $NEW [skip ci]"
+              git push origin dev
+              echo "bumped=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create or update deploy PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING=$(gh pr list --base main --head dev --json number --jq '.[0].number // empty')
+
+          CHANGELOG=$(git log origin/main..origin/dev --oneline --no-merges 2>/dev/null || echo "Initial release")
+
+          MERGED_PRS=$(gh pr list --state merged --base dev --json number,title,author \
+            --jq '.[] | "- #\(.number) \(.title) (@\(.author.login))"' 2>/dev/null || echo "")
+
+          COMMIT_COUNT=$(git rev-list --count origin/main..origin/dev 2>/dev/null || echo "?")
+          FILES_CHANGED=$(git diff --stat origin/main..origin/dev 2>/dev/null | tail -1 || echo "")
+
+          VERSION="${{ steps.version.outputs.new }}"
+          BUMP="${{ steps.bump.outputs.type }}"
+
+          BODY="## Deploy to Main — v${VERSION}
+
+          Auto-generated PR tracking all changes on \`dev\` ready for release.
+
+          **Version:** ${{ steps.version.outputs.current }} → ${VERSION} (${BUMP})
+          **Override:** add label \`release:major\`, \`release:minor\`, or \`release:patch\` and re-run.
+
+          ### Merged PRs
+          ${MERGED_PRS:-_No PRs merged yet_}
+
+          ### Stats
+          - **Commits:** ${COMMIT_COUNT}
+          - **Summary:** ${FILES_CHANGED}
+
+          ### Commit log
+          \`\`\`
+          ${CHANGELOG}
+          \`\`\`
+
+          ---
+          _Last updated: $(date -u '+%Y-%m-%d %H:%M UTC') by GitHub Actions_"
+
+          if [ -n "$EXISTING" ]; then
+            echo "Updating existing PR #${EXISTING}..."
+            gh pr edit "$EXISTING" --title "Deploy to Main — v${VERSION}" --body "$BODY"
+            gh pr comment "$EXISTING" --body "🔄 Updated: merged ${{ steps.merged.outputs.latest }} | version → v${VERSION} (${BUMP})"
+          else
+            echo "Creating new deploy PR..."
+            gh pr create \
+              --base main \
+              --head dev \
+              --title "Deploy to Main — v${VERSION}" \
+              --body "$BODY"
+          fi
