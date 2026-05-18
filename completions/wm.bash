@@ -25,7 +25,7 @@ _wm_completions() {
   prev="${COMP_WORDS[COMP_CWORD-1]}"
 
   # Top-level commands
-  local commands="setup schedule unschedule assets list remove run show retro logs completions update"
+  local commands="setup schedule unschedule assets list remove run show retro alerts logs completions update"
 
   case "${COMP_CWORD}" in
     1)
@@ -45,6 +45,9 @@ _wm_completions() {
           ;;
         retro)
           COMPREPLY=($(compgen -W "--weekly --monthly -w -m list show" -- "${cur}"))
+          ;;
+        alerts)
+          COMPREPLY=($(compgen -W "test status" -- "${cur}"))
           ;;
         schedule)
           COMPREPLY=($(compgen -W "status" -- "${cur}"))
