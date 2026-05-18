@@ -161,7 +161,7 @@ defmodule Watchman.Pipeline do
     case Watchman.AI.Factory.provider() do
       Watchman.AI.Claude -> 5.0
       Watchman.AI.Gemini -> 0.30
-      Watchman.AI.DeepSeek -> 1.10
+      Watchman.AI.Deepseek -> 1.10
       _ -> 5.0
     end
   end
