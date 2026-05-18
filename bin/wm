@@ -7,4 +7,5 @@ REAL_SCRIPT="$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || realpath "${BASH_S
 SCRIPT_DIR="$(cd "$(dirname "$REAL_SCRIPT")/.." && pwd)"
 cd "$SCRIPT_DIR"
 
+export MIX_ENV="${MIX_ENV:-prod}"
 exec mix run -e "Watchman.CLI.main(System.argv())" -- "$@"
