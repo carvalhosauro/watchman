@@ -18,6 +18,9 @@ defmodule Watchman.MixProject do
           Watchman.AI.Deepseek,
           Watchman.Market.Brapi,
           Watchman.Market.Yfinance,
+          # Alert providers — HTTP wrappers
+          Watchman.Alerts.Telegram,
+          Watchman.Alerts.Discord,
           # Interactive I/O — requires stdin
           Watchman.Setup,
           # System commands — requires systemd/cron
@@ -60,6 +63,7 @@ defmodule Watchman.MixProject do
       {:req, "~> 0.5"},
       {:jason, "~> 1.4"},
       {:toml, "~> 0.7"},
+      {:plug, "~> 1.0", only: :test},
       {:mox, "~> 1.0", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
