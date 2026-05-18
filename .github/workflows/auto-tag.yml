@@ -1,0 +1,57 @@
+name: Auto Tag Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Create Release Tag
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Read version and create tag
+        run: |
+          VERSION=$(grep -oP 'version: "\K[0-9]+\.[0-9]+\.[0-9]+' mix.exs)
+          TAG="v${VERSION}"
+
+          # Check if tag already exists
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping."
+            exit 0
+          fi
+
+          # Check for label overrides (re-bump if needed)
+          LABELS='${{ toJSON(github.event.pull_request.labels.*.name) }}'
+
+          if echo "$LABELS" | grep -q "release:major"; then
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            VERSION="$((MAJOR + 1)).0.0"
+            TAG="v${VERSION}"
+          elif echo "$LABELS" | grep -q "release:minor"; then
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            VERSION="${MAJOR}.$((MINOR + 1)).0"
+            TAG="v${VERSION}"
+          elif echo "$LABELS" | grep -q "release:patch"; then
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+            TAG="v${VERSION}"
+          fi
+
+          echo "Creating tag: $TAG"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
