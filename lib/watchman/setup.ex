@@ -99,11 +99,11 @@ defmodule Watchman.Setup do
   defp configure_pipeline do
     IO.puts("\n    Pipeline Settings\n")
 
-    concurrency = prompt("  Max concurrent analyses", "10")
+    concurrency = prompt("  Max concurrent analyses", "3")
     timeout = prompt("  Timeout per analysis (seconds)", "120")
 
     %{
-      max_concurrency: parse_int(concurrency, 10),
+      max_concurrency: parse_int(concurrency, 3),
       timeout_seconds: parse_int(timeout, 120)
     }
   end
@@ -172,13 +172,18 @@ defmodule Watchman.Setup do
           """
 
         :config_file ->
+          anthropic_key = escape_toml_string(Map.get(keys, :anthropic_key, ""))
+          gemini_key = escape_toml_string(Map.get(keys, :gemini_key, ""))
+          deepseek_key = escape_toml_string(Map.get(keys, :deepseek_key, ""))
+          brapi_token = escape_toml_string(Map.get(keys, :brapi_token, ""))
+
           """
           [api]
           # Keys stored here with chmod 600. Do NOT commit this file.
-          anthropic_key = "#{Map.get(keys, :anthropic_key, "")}"
-          gemini_key = "#{Map.get(keys, :gemini_key, "")}"
-          deepseek_key = "#{Map.get(keys, :deepseek_key, "")}"
-          brapi_token = "#{Map.get(keys, :brapi_token, "")}"
+          anthropic_key = "#{anthropic_key}"
+          gemini_key = "#{gemini_key}"
+          deepseek_key = "#{deepseek_key}"
+          brapi_token = "#{brapi_token}"
           """
       end
 
@@ -206,7 +211,14 @@ defmodule Watchman.Setup do
 
   defp prompt_secret(label) do
     IO.write("#{label}: ")
-    :io.get_password() |> to_string() |> String.trim()
+
+    case :io.get_password() do
+      {:error, _} ->
+        IO.gets("") |> String.trim()
+
+      chars ->
+        chars |> to_string() |> String.trim()
+    end
   end
 
   defp parse_int(str, default) do
@@ -215,4 +227,7 @@ defmodule Watchman.Setup do
       :error -> default
     end
   end
+
+  defp escape_toml_string(s),
+    do: s |> String.replace("\\", "\\\\") |> String.replace("\"", "\\\"")
 end
