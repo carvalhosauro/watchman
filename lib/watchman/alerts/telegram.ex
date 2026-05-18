@@ -60,19 +60,15 @@ defmodule Watchman.Alerts.Telegram do
   end
 
   defp fetch_token do
-    try do
-      {:ok, Watchman.Config.telegram_bot_token()}
-    rescue
-      e -> {:error, {:config, Exception.message(e)}}
-    end
+    {:ok, Watchman.Config.telegram_bot_token()}
+  rescue
+    e -> {:error, {:config, Exception.message(e)}}
   end
 
   defp fetch_chat_id do
-    try do
-      {:ok, Watchman.Config.telegram_chat_id()}
-    rescue
-      e -> {:error, {:config, Exception.message(e)}}
-    end
+    {:ok, Watchman.Config.telegram_chat_id()}
+  rescue
+    e -> {:error, {:config, Exception.message(e)}}
   end
 
   defp req_opts(opts) do

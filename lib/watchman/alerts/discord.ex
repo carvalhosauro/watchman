@@ -67,10 +67,8 @@ defmodule Watchman.Alerts.Discord do
   end
 
   defp webhook_url do
-    try do
-      {:ok, Watchman.Config.discord_webhook_url()}
-    rescue
-      e -> {:error, {:config, Exception.message(e)}}
-    end
+    {:ok, Watchman.Config.discord_webhook_url()}
+  rescue
+    e -> {:error, {:config, Exception.message(e)}}
   end
 end
