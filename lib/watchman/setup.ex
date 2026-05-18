@@ -221,5 +221,6 @@ defmodule Watchman.Setup do
     end
   end
 
-  defp escape_toml_string(s), do: s |> String.replace("\\", "\\\\") |> String.replace("\"", "\\\"")
+  defp escape_toml_string(s),
+    do: s |> String.replace("\\", "\\\\") |> String.replace("\"", "\\\"")
 end
