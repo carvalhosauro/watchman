@@ -1,6 +1,7 @@
 defmodule Watchman.CLI do
   @moduledoc "CLI entry point and command dispatch."
 
+  alias Watchman.Alerts.Dispatcher
   alias Watchman.Models.{Analysis, Asset, PriceSnapshot}
   alias Watchman.Repo
   import Ecto.Query
@@ -207,11 +208,11 @@ defmodule Watchman.CLI do
 
   defp cmd_alerts_test do
     IO.puts("Testando alertas...\n")
-    Watchman.Alerts.Dispatcher.test_all()
+    Dispatcher.test_all()
   end
 
   defp cmd_alerts_status do
-    Watchman.Alerts.Dispatcher.status()
+    Dispatcher.status()
   end
 
   defp cmd_logs(opts) do

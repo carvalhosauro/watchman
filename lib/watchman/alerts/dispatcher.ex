@@ -3,29 +3,34 @@ defmodule Watchman.Alerts.Dispatcher do
 
   require Logger
 
+  alias Watchman.Alerts.{Discord, Factory, Telegram}
+  alias Watchman.Config
+
   def maybe_notify(ticker, recommendation, justification) do
-    triggers = Watchman.Config.alerts_triggers()
-    providers = Watchman.Alerts.Factory.providers()
+    triggers = Config.alerts_triggers()
+    providers = Factory.providers()
 
     if recommendation in triggers and providers != [] do
-      Enum.each(providers, fn provider ->
-        case provider.send_alert(ticker, recommendation, justification || "") do
-          :ok ->
-            Logger.info("Alert sent via #{inspect(provider)} for #{ticker}")
-
-          {:error, reason} ->
-            Logger.warning(
-              "Alert failed via #{inspect(provider)} for #{ticker}: #{inspect(reason)}"
-            )
-        end
-      end)
+      Enum.each(providers, &send_to_provider(&1, ticker, recommendation, justification))
     end
 
     :ok
   end
 
+  defp send_to_provider(provider, ticker, recommendation, justification) do
+    case provider.send_alert(ticker, recommendation, justification || "") do
+      :ok ->
+        Logger.info("Alert sent via #{inspect(provider)} for #{ticker}")
+
+      {:error, reason} ->
+        Logger.warning(
+          "Alert failed via #{inspect(provider)} for #{ticker}: #{inspect(reason)}"
+        )
+    end
+  end
+
   def test_all do
-    providers = Watchman.Alerts.Factory.providers()
+    providers = Factory.providers()
 
     if providers == [] do
       IO.puts("Nenhum provedor de alertas configurado. Execute: wm setup")
@@ -52,20 +57,20 @@ defmodule Watchman.Alerts.Dispatcher do
   end
 
   def status do
-    providers = Watchman.Alerts.Factory.providers()
-    triggers = Watchman.Config.alerts_triggers()
+    providers = Factory.providers()
+    triggers = Config.alerts_triggers()
 
     if providers == [] do
       IO.puts("Alertas: não configurado")
       IO.puts("Execute: wm setup")
     else
-      names = Enum.map(providers, &provider_name/1) |> Enum.join(", ")
+      names = Enum.map_join(providers, ", ", &provider_name/1)
       IO.puts("Provedores: #{names}")
       IO.puts("Gatilhos:   #{Enum.join(triggers, ", ")}")
     end
   end
 
-  defp provider_name(Watchman.Alerts.Telegram), do: "Telegram"
-  defp provider_name(Watchman.Alerts.Discord), do: "Discord"
+  defp provider_name(Telegram), do: "Telegram"
+  defp provider_name(Discord), do: "Discord"
   defp provider_name(module), do: inspect(module)
 end
