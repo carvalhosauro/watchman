@@ -5,7 +5,7 @@ on:
     branches: [dev]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 jobs:
@@ -17,12 +17,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: dev
-
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Get merged PR info
         id: merged
@@ -33,51 +27,11 @@ jobs:
           LATEST=$(echo "$PR_JSON" | jq -r '.[0] | "#\(.number) \(.title) (@\(.author.login))"')
           echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
 
-      - name: Determine version bump
-        id: bump
-        run: |
-          # Get commits on dev not in main
-          COMMITS=$(git log origin/main..origin/dev --oneline --no-merges 2>/dev/null || echo "")
-
-          if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-f0-9]+ [a-z]+(\(.+\))?!:"; then
-            echo "type=major" >> "$GITHUB_OUTPUT"
-          elif echo "$COMMITS" | grep -qE "^[a-f0-9]+ feat"; then
-            echo "type=minor" >> "$GITHUB_OUTPUT"
-          else
-            echo "type=patch" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Bump version in mix.exs on dev
+      - name: Read version
         id: version
         run: |
-          CURRENT=$(grep -oP 'version: "\K[0-9]+\.[0-9]+\.[0-9]+' mix.exs)
-          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
-
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-
-          case "${{ steps.bump.outputs.type }}" in
-            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
-            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
-            patch) PATCH=$((PATCH + 1)) ;;
-          esac
-
-          NEW="${MAJOR}.${MINOR}.${PATCH}"
-          echo "new=$NEW" >> "$GITHUB_OUTPUT"
-
-          # Only bump if version changed
-          if [ "$CURRENT" != "$NEW" ]; then
-            sed -i "s/version: \"$CURRENT\"/version: \"$NEW\"/" mix.exs
-            if git diff --quiet mix.exs; then
-              echo "bumped=false" >> "$GITHUB_OUTPUT"
-            else
-              git add mix.exs
-              git commit -m "chore: bump version to $NEW [skip ci]"
-              git push origin dev
-              echo "bumped=true" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "bumped=false" >> "$GITHUB_OUTPUT"
-          fi
+          VERSION=$(grep -oP 'version: "\K[0-9]+\.[0-9]+\.[0-9]+' mix.exs)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create or update deploy PR
         env:
@@ -93,15 +47,14 @@ jobs:
           COMMIT_COUNT=$(git rev-list --count origin/main..origin/dev 2>/dev/null || echo "?")
           FILES_CHANGED=$(git diff --stat origin/main..origin/dev 2>/dev/null | tail -1 || echo "")
 
-          VERSION="${{ steps.version.outputs.new }}"
-          BUMP="${{ steps.bump.outputs.type }}"
+          VERSION="${{ steps.version.outputs.version }}"
 
           BODY="## Deploy to Main — v${VERSION}
 
           Auto-generated PR tracking all changes on \`dev\` ready for release.
 
-          **Version:** ${{ steps.version.outputs.current }} → ${VERSION} (${BUMP})
-          **Override:** add label \`release:major\`, \`release:minor\`, or \`release:patch\` and re-run.
+          **Current version in mix.exs:** v${VERSION}
+          > To bump version before release, update \`mix.exs\` via PR to dev.
 
           ### Merged PRs
           ${MERGED_PRS:-_No PRs merged yet_}
@@ -121,7 +74,7 @@ jobs:
           if [ -n "$EXISTING" ]; then
             echo "Updating existing PR #${EXISTING}..."
             gh pr edit "$EXISTING" --title "Deploy to Main — v${VERSION}" --body "$BODY"
-            gh pr comment "$EXISTING" --body "🔄 Updated: merged ${{ steps.merged.outputs.latest }} | version → v${VERSION} (${BUMP})"
+            gh pr comment "$EXISTING" --body "🔄 Updated: merged ${{ steps.merged.outputs.latest }}"
           else
             echo "Creating new deploy PR..."
             gh pr create \
