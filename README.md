@@ -11,6 +11,10 @@ and tries to answer the only question that matters:
 
 > *is this something I need to understand right now, or can I ignore it?*
 
+<p align="center">
+  <img src="docs/watchmen-preview.gif" alt="watchman preview" width="700" />
+</p>
+
 ---
 
 ## What it does

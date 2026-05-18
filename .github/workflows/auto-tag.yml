@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   tag:
-    name: Bump Version & Tag
+    name: Create Release Tag
     runs-on: ubuntu-latest
     if: github.event.pull_request.merged == true
 
@@ -18,84 +18,40 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Determine version bump
-        id: bump
+      - name: Read version and create tag
         run: |
-          # Check PR labels first (override)
+          VERSION=$(grep -oP 'version: "\K[0-9]+\.[0-9]+\.[0-9]+' mix.exs)
+          TAG="v${VERSION}"
+
+          # Check if tag already exists
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping."
+            exit 0
+          fi
+
+          # Check for label overrides (re-bump if needed)
           LABELS='${{ toJSON(github.event.pull_request.labels.*.name) }}'
 
           if echo "$LABELS" | grep -q "release:major"; then
-            echo "type=major" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if echo "$LABELS" | grep -q "release:minor"; then
-            echo "type=minor" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if echo "$LABELS" | grep -q "release:patch"; then
-            echo "type=patch" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Auto-detect from commit messages
-          COMMITS=$(git log --oneline --no-merges ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.merge_commit_sha }} 2>/dev/null || echo "")
-
-          if echo "$COMMITS" | grep -qiE "BREAKING CHANGE|^[a-z]+(\(.+\))?!:"; then
-            echo "type=major" >> "$GITHUB_OUTPUT"
-          elif echo "$COMMITS" | grep -qE "^[a-f0-9]+ feat"; then
-            echo "type=minor" >> "$GITHUB_OUTPUT"
-          else
-            echo "type=patch" >> "$GITHUB_OUTPUT"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            VERSION="$((MAJOR + 1)).0.0"
+            TAG="v${VERSION}"
+          elif echo "$LABELS" | grep -q "release:minor"; then
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            VERSION="${MAJOR}.$((MINOR + 1)).0"
+            TAG="v${VERSION}"
+          elif echo "$LABELS" | grep -q "release:patch"; then
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+            TAG="v${VERSION}"
           fi
 
-      - name: Get current version
-        id: current
-        run: |
-          VERSION=$(grep -oP 'version: "\K[0-9]+\.[0-9]+\.[0-9]+' mix.exs)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Current version: $VERSION"
-
-      - name: Calculate new version
-        id: new
-        run: |
-          IFS='.' read -r MAJOR MINOR PATCH <<< "${{ steps.current.outputs.version }}"
-
-          case "${{ steps.bump.outputs.type }}" in
-            major)
-              MAJOR=$((MAJOR + 1))
-              MINOR=0
-              PATCH=0
-              ;;
-            minor)
-              MINOR=$((MINOR + 1))
-              PATCH=0
-              ;;
-            patch)
-              PATCH=$((PATCH + 1))
-              ;;
-          esac
-
-          NEW="${MAJOR}.${MINOR}.${PATCH}"
-          echo "version=$NEW" >> "$GITHUB_OUTPUT"
-          echo "Bump: ${{ steps.current.outputs.version }} → $NEW (${{ steps.bump.outputs.type }})"
-
-      - name: Bump version in mix.exs
-        run: |
-          sed -i 's/version: "${{ steps.current.outputs.version }}"/version: "${{ steps.new.outputs.version }}"/' mix.exs
-          git add mix.exs
-          git commit -m "chore: bump version to ${{ steps.new.outputs.version }}"
-          git push
-
-      - name: Create and push tag
-        run: |
-          TAG="v${{ steps.new.outputs.version }}"
+          echo "Creating tag: $TAG"
           git tag -a "$TAG" -m "Release $TAG"
           git push origin "$TAG"
-          echo "Tagged: $TAG"

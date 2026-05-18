@@ -23,38 +23,38 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Find the PR that was just merged (triggered this push)
           PR_JSON=$(gh pr list --state merged --base dev --json number,title,author,mergedAt --limit 5)
           LATEST=$(echo "$PR_JSON" | jq -r '.[0] | "#\(.number) \(.title) (@\(.author.login))"')
           echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(grep -oP 'version: "\K[0-9]+\.[0-9]+\.[0-9]+' mix.exs)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Create or update deploy PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Check if deploy PR already exists
           EXISTING=$(gh pr list --base main --head dev --json number --jq '.[0].number // empty')
 
-          # Build changelog from commits on dev not in main
           CHANGELOG=$(git log origin/main..origin/dev --oneline --no-merges 2>/dev/null || echo "Initial release")
 
-          # Get list of merged PRs since main
           MERGED_PRS=$(gh pr list --state merged --base dev --json number,title,author \
             --jq '.[] | "- #\(.number) \(.title) (@\(.author.login))"' 2>/dev/null || echo "")
 
-          # Count stats
           COMMIT_COUNT=$(git rev-list --count origin/main..origin/dev 2>/dev/null || echo "?")
           FILES_CHANGED=$(git diff --stat origin/main..origin/dev 2>/dev/null | tail -1 || echo "")
 
-          BODY=$(cat <<'HEADER'
-          ## Deploy to Main
+          VERSION="${{ steps.version.outputs.version }}"
 
-          Auto-generated PR tracking all changes on `dev` ready for release.
+          BODY="## Deploy to Main — v${VERSION}
 
-          HEADER
-          )
+          Auto-generated PR tracking all changes on \`dev\` ready for release.
 
-          BODY="${BODY}
+          **Current version in mix.exs:** v${VERSION}
+          > To bump version before release, update \`mix.exs\` via PR to dev.
 
           ### Merged PRs
           ${MERGED_PRS:-_No PRs merged yet_}
@@ -73,13 +73,13 @@ jobs:
 
           if [ -n "$EXISTING" ]; then
             echo "Updating existing PR #${EXISTING}..."
-            gh pr edit "$EXISTING" --body "$BODY"
-            gh pr comment "$EXISTING" --body "Updated: merged ${{ steps.merged.outputs.latest }}"
+            gh pr edit "$EXISTING" --title "Deploy to Main — v${VERSION}" --body "$BODY"
+            gh pr comment "$EXISTING" --body "🔄 Updated: merged ${{ steps.merged.outputs.latest }}"
           else
             echo "Creating new deploy PR..."
             gh pr create \
               --base main \
               --head dev \
-              --title "Deploy to Main" \
+              --title "Deploy to Main — v${VERSION}" \
               --body "$BODY"
           fi

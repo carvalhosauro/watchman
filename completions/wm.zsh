@@ -16,6 +16,7 @@ _wm() {
     'run:Run analysis for all tracked assets'
     'show:Show analyses'
     'retro:Generate or view retrospectives'
+    'alerts:Manage alert notifications'
     'logs:View log file'
     'completions:Output shell completion script'
     'update:Pull latest version from GitHub'
@@ -60,6 +61,11 @@ _wm() {
           else
             _describe 'retro command' retro_cmds
           fi
+          ;;
+        alerts)
+          local -a subcmds
+          subcmds=('test:Verify alert configuration' 'status:Show alert settings')
+          _describe 'subcommand' subcmds
           ;;
         schedule)
           local -a subcmds

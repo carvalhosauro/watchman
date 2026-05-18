@@ -3,6 +3,7 @@ defmodule Watchman.Pipeline do
 
   require Logger
 
+  alias Watchman.Alerts.Dispatcher
   alias Watchman.Market.{Brapi, BrapiUsage}
   alias Watchman.Models.{Analysis, Asset, NewsItem, PriceSnapshot}
   alias Watchman.Repo
@@ -68,6 +69,12 @@ defmodule Watchman.Pipeline do
          :ok <- persist_news(asset, news_items) do
       Logger.info(
         "#{asset.ticker}: #{analysis_data.recommendation} (#{analysis_data.tokens_used || 0} tokens)"
+      )
+
+      Dispatcher.maybe_notify(
+        asset.ticker,
+        analysis_data.recommendation,
+        analysis_data.justification
       )
 
       IO.puts("  ✓ #{asset.ticker} — #{analysis_data.recommendation}")
