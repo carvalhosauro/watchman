@@ -24,6 +24,7 @@ defmodule Watchman.Analysis.Technical do
     * `zscore/2` — requires at least `period` snapshots and `period >= 2`.
     * `streak/1` — no minimum; empty/single → `%{direction: :up, days: 0}`, never errors.
     * `drawdown/2` — requires at least `period` snapshots.
+    * `indicators/1` — requires at least 50 snapshots (driven by `sma50` + `drawdown/2`).
 
   ## EMA seeding
 
@@ -35,6 +36,12 @@ defmodule Watchman.Analysis.Technical do
   RSI uses Wilder smoothing (multiplier `1/period`). When `avg_loss == 0`,
   RSI returns `100.0` by convention to avoid division by zero. This applies
   to both the all-gain and the flat (zero-delta) cases.
+
+  ## indicators/1 aggregator
+
+  `indicators/1` is all-or-nothing: requires ≥ 50 snapshots (driven by `sma50`
+  and `drawdown/2`). Returns a fully-populated `%Watchman.Analysis.Indicators{}`
+  or `{:error, :insufficient_data}` if any sub-computation fails.
 
   ## Drawdown from peak
 
@@ -56,6 +63,7 @@ defmodule Watchman.Analysis.Technical do
   than divide-by-zero.
   """
 
+  alias Watchman.Analysis.Indicators
   alias Watchman.Models.PriceSnapshot
 
   @spec sma([PriceSnapshot.t()], pos_integer()) :: {:ok, float()} | {:error, :insufficient_data}
@@ -175,6 +183,37 @@ defmodule Watchman.Analysis.Technical do
       peak = Enum.max(prices)
       last = List.last(prices)
       {:ok, (last - peak) / peak * 100.0}
+    end
+  end
+
+  @spec indicators([PriceSnapshot.t()]) ::
+          {:ok, Indicators.t()} | {:error, :insufficient_data}
+  def indicators(snapshots) when is_list(snapshots) do
+    if length(snapshots) < 50 do
+      {:error, :insufficient_data}
+    else
+      with {:ok, sma7} <- sma(snapshots, 7),
+           {:ok, sma21} <- sma(snapshots, 21),
+           {:ok, sma50} <- sma(snapshots, 50),
+           {:ok, ema21} <- ema(snapshots, 21),
+           {:ok, rsi14} <- rsi(snapshots, 14),
+           {:ok, zscore21} <- zscore(snapshots, 21),
+           {:ok, streak_val} <- streak(snapshots),
+           {:ok, dd} <- drawdown(snapshots, 50) do
+        {:ok,
+         %Indicators{
+           sma7: sma7,
+           sma21: sma21,
+           sma50: sma50,
+           ema21: ema21,
+           rsi14: rsi14,
+           zscore21: zscore21,
+           streak: streak_val,
+           drawdown_from_peak: dd
+         }}
+      else
+        {:error, _} -> {:error, :insufficient_data}
+      end
     end
   end
 

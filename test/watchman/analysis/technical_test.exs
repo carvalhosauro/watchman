@@ -1,10 +1,11 @@
 defmodule Watchman.Analysis.TechnicalTest do
   use ExUnit.Case, async: true
 
-  alias Watchman.Analysis.Technical
+  alias Watchman.Analysis.{Indicators, Technical}
   alias Watchman.Models.PriceSnapshot
 
   defp snap(price), do: %PriceSnapshot{price: price}
+  defp snaps_seq(n), do: for(i <- 1..n, do: snap(100.0 + i / 10))
 
   describe "sma/2" do
     test "reference: period 3 over 5 snapshots → (3+4+5)/3 = 4.0" do
@@ -127,6 +128,13 @@ defmodule Watchman.Analysis.TechnicalTest do
       snapshots = Enum.map([5.0, 5.0, 5.0, 5.0, 5.0], &snap/1)
       assert Technical.zscore(snapshots, 5) == {:error, :insufficient_data}
     end
+
+    test "default period 21 used when called with 1 argument" do
+      # 20 snapshots → insufficient with default period 21
+      assert Technical.zscore(snaps_seq(20)) == {:error, :insufficient_data}
+      # 21 snapshots, non-flat → ok
+      assert {:ok, _} = Technical.zscore(snaps_seq(21))
+    end
   end
 
   describe "streak/1" do
@@ -181,6 +189,36 @@ defmodule Watchman.Analysis.TechnicalTest do
     test "insufficient: length < period → {:error, :insufficient_data}" do
       snapshots = Enum.map([1.0, 2.0], &snap/1)
       assert Technical.drawdown(snapshots, 5) == {:error, :insufficient_data}
+    end
+  end
+
+  describe "indicators/1" do
+    test "happy path: 60 monotonic snapshots → fully populated %Indicators{}" do
+      snapshots = snaps_seq(60)
+      assert {:ok, %Indicators{} = ind} = Technical.indicators(snapshots)
+      assert is_float(ind.sma7)
+      assert is_float(ind.sma21)
+      assert is_float(ind.sma50)
+      assert is_float(ind.ema21)
+      assert ind.rsi14 >= 0.0 and ind.rsi14 <= 100.0
+      assert is_float(ind.zscore21)
+      assert ind.streak.direction in [:up, :down]
+      assert is_integer(ind.streak.days) and ind.streak.days >= 0
+      assert ind.drawdown_from_peak <= 0.0
+    end
+
+    test "insufficient: 49 snapshots → {:error, :insufficient_data}" do
+      assert Technical.indicators(snaps_seq(49)) == {:error, :insufficient_data}
+    end
+
+    test "insufficient: empty list → {:error, :insufficient_data}" do
+      assert Technical.indicators([]) == {:error, :insufficient_data}
+    end
+
+    test "sub-failure (flat input, zscore stddev=0) → {:error, :insufficient_data}" do
+      # 50+ flat snapshots: zscore/2 returns :insufficient_data, triggers with-else branch
+      snapshots = for _ <- 1..60, do: snap(100.0)
+      assert Technical.indicators(snapshots) == {:error, :insufficient_data}
     end
   end
 end
