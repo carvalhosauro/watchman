@@ -94,20 +94,56 @@ Detailed prep in [`docs/track-3-news.md`](docs/track-3-news.md). Shipped commits
 
 ---
 
-## v0.7.0 — Portfolio Intelligence (deferred from previous roadmap)
+## v0.7.0 — Track 5: Daemon paradigm shift
+
+> **Breaking architectural change.** The current `wm run` invocation
+> driven by cron / systemd timer is replaced by a long-lived OTP
+> daemon that owns all ingestion + analysis. The CLI becomes
+> read-only against the daemon's database. **`wm run` is removed.**
+
+**Goal:** stop stacking cron jobs as the number of news/price sources
+grows. One supervised process owns every cadence with shared
+rate-limit budget and pre-persistence dedup.
+
+- [ ] `Watchman.Daemon.Supervisor` OTP supervision tree
+- [ ] Per-source schedulers (`Daemon.NewsScheduler`, `Daemon.PriceScheduler`, `Daemon.AnalysisScheduler`, `Daemon.OutcomeCloser`)
+- [ ] `Watchman.Daemon.RateLimiter` — shared Brapi free-tier budget
+- [ ] `Watchman.Daemon.Interval` helper (`"15m" | "1h" | "1d"`)
+- [ ] `[daemon]` TOML section with per-source intervals
+- [ ] SQLite WAL mode at Repo boot (one writer + many readers)
+- [ ] `wm daemon start | stop | status | restart` CLI commands
+- [ ] systemd user-unit installer (`~/.config/systemd/user/wm-daemon.service`)
+- [ ] daemon-status.json + graceful shutdown (drain in-flight Pipeline runs)
+- [ ] **Remove `wm run`** — replace with removal message
+- [ ] **Remove `wm schedule` / `wm unschedule`** — daemon owns scheduling
+- [ ] `wm news TICKER [--since DATE] [--source X]` — read-only news listing
+- [ ] `wm impact TICKER [--days N]` — recent news + price reaction window
+- [ ] One-time migration message in `wm update` for cron users
+- [ ] Documentation update flipping the "Key Decisions" pillar
+
+After v0.7.0, the CLI keeps only read-only commands plus the
+daemon-control subset: `setup`, `assets`, `list`, `remove`, `show`,
+`retro`, `accuracy`, `news`, `impact`, `logs`, `daemon`,
+`completions`, `update`. Ingestion is invisible to the user.
+
+Detailed prep in [`docs/track-5-daemon.md`](docs/track-5-daemon.md).
+
+---
+
+## v0.8.0 — Portfolio Intelligence
 
 - [ ] Portfolio tracking (quantity, avg price, P&L per asset)
 - [ ] Dividend tracking (yield, ex-dates, payment history)
 - [ ] Multi-asset correlation (link causes across assets)
 - [ ] Sector grouping and sector-level trends
 
-## v0.8.0 — Data & Export
+## v0.9.0 — Data & Export
 
 - [ ] Export analyses to CSV/JSON
 - [ ] Custom analysis prompts per asset type
 - [ ] Historical price chart in terminal (sparklines)
 
-## v0.9.0 — Experience
+## v0.10.0 — Experience
 
 - [ ] TUI dashboard (Ratatouille) — prices, history, recommendations, signals
 - [ ] i18n (English prompts/output for international users)

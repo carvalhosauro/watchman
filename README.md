@@ -149,10 +149,15 @@ The database is created automatically on first run at `~/.local/share/watchman/w
 
 > **Heads up.** Watchman is going through a strategic realignment so the
 > analytical layer lives in this codebase and the AI provider becomes
-> optional enrichment. Shipped so far: **v0.3.0** (accuracy tracking + `wm
-> accuracy`) and **v0.4.0** (`Watchman.Analysis.Technical` —
-> SMA/EMA/RSI/zscore/streak/drawdown, internal to the pipeline). Next:
-> **v0.5.0** (`Watchman.News.Provider` — CVM + Infomoney adapters). See
+> optional enrichment. Shipped so far: **v0.3.0** (accuracy tracking +
+> `wm accuracy`), **v0.4.0** (`Watchman.Analysis.Technical` —
+> SMA/EMA/RSI/zscore/streak/drawdown, internal to the pipeline), and
+> **v0.5.0** (`Watchman.News.Provider` — CVM, Infomoney, B3, and a
+> 5-outlet generic RSS reader covering 8 free news sources). Next:
+> **v0.6.0** (`Watchman.Analysis.Classifier` — deterministic signal
+> wiring news + indicators), then **v0.7.0** (the daemon paradigm
+> shift: `wm run` is replaced by a long-lived ingestion daemon, and
+> the CLI becomes read-only against the daemon's database). See
 > [`docs/REALIGNMENT.md`](docs/REALIGNMENT.md) and
 > [`ROADMAP.md`](ROADMAP.md) for the full plan.
 

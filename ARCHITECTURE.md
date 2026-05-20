@@ -11,6 +11,15 @@ From v0.3.0 onwards (the [strategic realignment](docs/REALIGNMENT.md)),
 the analytical layer lives in this codebase. The AI provider is an
 enrichment step, not the engine.
 
+> **Paradigm shift in flight (v0.7.0 — Track 5).** From v0.7.0 the
+> current run-and-exit invocation model (`wm run` + cron / systemd
+> timer) is replaced by a long-lived OTP daemon that owns every
+> ingestion and analysis cadence. The CLI becomes read-only against
+> the daemon's SQLite database. `wm run` is **removed**. See
+> [`docs/track-5-daemon.md`](docs/track-5-daemon.md). Everything in
+> this document describes the v0.5.0–v0.6.0 state and remains
+> accurate until Track 5 ships.
+
 ## Design Patterns
 
 ### Strategy + Factory (Providers)
@@ -36,9 +45,17 @@ function modules. No DB calls. No HTTP. No process communication. Tagged-tuple
 errors on bad input — they never raise. Everything is unit-testable with
 hardcoded fixtures.
 
-### Run-and-exit model
+### Run-and-exit model *(reversed at v0.7.0)*
 
-No GenServer daemon. CLI starts app, does work, exits. Cron/systemd-friendly.
+CLI starts app, does work, exits. Cron / systemd-timer driven. No
+persistent process. This pillar holds through v0.6.0. Track 5 (Track
+5 / v0.7.0) reverses it: a long-lived `Watchman.Daemon.Supervisor`
+owns every cadence, schedulers tick via `Process.send_after`, and
+the CLI runs read-only against the same SQLite DB in WAL mode. The
+trigger for the reversal is the cost of stacking N cron entries as
+ingestion sources multiply (Track 3 shipped 4 adapters across 8
+sources; Track 5 acknowledges that one external scheduler per
+cadence is operational noise).
 
 ## Config Priority
 
@@ -172,6 +189,7 @@ release-gate: stricter checks on PRs to main
 | SQLite, not Postgres | Personal tool, zero setup, single file |
 | `Task.async_stream` | Parallel with backpressure, timeout, isolation |
 | Portuguese user-facing strings | Brazilian market, PT-BR context improves analysis and UX |
-| No GenServer | Run-and-exit suits cron, avoids complexity |
+| No GenServer (v0.1.0 – v0.6.0) | Run-and-exit suits cron, avoids complexity |
+| GenServer daemon (v0.7.0 onwards) | Multi-cadence ingestion + shared rate-limit budget outgrow what cron can express cleanly — see [docs/track-5-daemon.md](docs/track-5-daemon.md) |
 | `retry: :transient` | Handles connection pool exhaustion under parallel load |
 | Ignore HTTP wrappers in coverage | Thin wrappers, tested via integration |

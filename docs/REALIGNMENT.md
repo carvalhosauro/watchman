@@ -45,7 +45,9 @@ Key properties:
 
 ## Implementation tracks
 
-Four tracks, ordered by dependency and by how soon they add user-visible value.
+Five tracks, ordered by dependency and by how soon they add user-visible
+value. The first four ship the analytical layer; Track 5 changes the
+invocation paradigm now that the layer exists.
 
 ### Track 1 — Accuracy tracking (`wm accuracy`) — v0.3.0
 
@@ -185,7 +187,44 @@ Constraints:
 - `confidence = matched_conditions / total_evaluated_conditions`, capped at 1.0.
 - When AI is enabled, the classifier output is passed in as additional context, so the AI references it rather than starting from scratch.
 
-## Pipeline integration (after all four tracks ship)
+### Track 5 — Daemon paradigm shift (`Watchman.Daemon.Supervisor`) — v0.7.0
+
+**Why last:** depends on the analytical layer being complete. Track 5
+does not add new analysis — it moves the existing Pipeline (refactored
+by Track 4) out of the run-and-exit CLI invocation and into a
+supervised long-lived OTP process.
+
+What changes:
+
+- `Watchman.Daemon.Supervisor` owns every cadence (news per source,
+  price, analysis, outcome closer) via GenServer schedulers that
+  `Process.send_after/3` their own next tick.
+- Shared `Watchman.Daemon.RateLimiter` budget for the Brapi free tier.
+- SQLite WAL mode: daemon writes, CLI reads concurrently.
+- `wm daemon start | stop | status | restart` controls a systemd
+  user-unit (`~/.config/systemd/user/wm-daemon.service`).
+- **`wm run` is removed.** Cron / systemd-timer entries the user had
+  configured for the old model become obsolete; `wm update` prints a
+  one-time migration message.
+- `wm schedule` / `wm unschedule` are also removed — cadence lives in
+  the new `[daemon]` TOML section.
+- CLI gains read-only commands: `wm news TICKER`, `wm impact TICKER`.
+- Documented in [track-5-daemon.md](track-5-daemon.md).
+
+Constraints:
+
+- Daemon is the sole DB writer.
+- Schedulers must be idempotent (existing UNIQUE constraints already
+  cover this).
+- No new runtime deps. Plain OTP supervision tree.
+- Graceful shutdown drains in-flight Pipeline runs (`TimeoutStopSec=45s`).
+
+The "Key Decisions" entry that said *"No GenServer · Run-and-exit
+suits cron, avoids complexity"* is reversed in this track. The new
+entry says *"GenServer daemon — multi-cadence ingestion + shared
+rate-limit budget outgrow what cron can express cleanly."*
+
+## Pipeline integration (after all four analytical tracks ship)
 
 `Watchman.Pipeline` is rewritten to:
 
