@@ -116,8 +116,8 @@ enriches the deterministic classification rather than re-deriving it.
 | `Market.Provider` | Behaviour for price fetching | shipped |
 | `Alerts.Provider` | Behaviour for alert delivery | shipped |
 | `Accuracy` | Outcome closer + hit-rate queries | shipped (v0.3.0) |
-| `Analysis.Technical` | Pure indicator functions (SMA, EMA, RSI, …) | Track 2 — v0.4.0 |
-| `Analysis.Indicators` | Indicator result struct | Track 2 — v0.4.0 |
+| `Analysis.Technical` | Pure indicator functions (SMA, EMA, RSI, …) | shipped (v0.4.0) |
+| `Analysis.Indicators` | Indicator result struct | shipped (v0.4.0) |
 | `News.Provider` | Behaviour for news fetching | Track 3 — v0.5.0 |
 | `News.CVM` / `News.Infomoney` | News adapters | Track 3 — v0.5.0 |
 | `Analysis.Classifier` | Rule engine → `%Signal{}` | Track 4 — v0.6.0 |

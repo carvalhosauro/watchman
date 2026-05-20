@@ -3,12 +3,16 @@
 Concrete prep for the second realignment track. See
 [`REALIGNMENT.md`](REALIGNMENT.md) for the broader rationale.
 
-## Status — not started
+## Status — shipped v0.4.0
 
-Track 1 (v0.3.0) shipped. Track 2 is the next active milestone. This
-document is the work plan and will be updated with shipped-commit
-metadata as the track progresses, mirroring
-[`track-1-accuracy.md`](track-1-accuracy.md).
+Track 2 shipped as of v0.4.0. Commits `b31cb54` (Indicators struct)
+through `daaee56` (version bump) on branch `dev`.
+All public functions in `Watchman.Analysis.Technical` covered;
+`Watchman.Analysis.Technical` and `Watchman.Analysis.Indicators`
+at 100% coverage.
+
+The task list at the bottom of this document is preserved as the
+historical record of how the track was decomposed.
 
 ## Goal
 

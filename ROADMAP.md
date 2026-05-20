@@ -46,22 +46,22 @@ Zero new APIs. Zero new dependencies. Immediate credibility win.
 
 Detailed prep in [`docs/track-1-accuracy.md`](docs/track-1-accuracy.md). Shipped commits: `5ec3b40` → `b4c55ed` (final hardening). See [`CHANGELOG.md`](CHANGELOG.md).
 
-## v0.4.0 — Track 2: Technical Analysis (next)
+## v0.4.0 — Track 2: Technical Analysis (done)
 
 **Goal:** own deterministic indicators computed from stored `price_snapshots`.
 Pure functions. 100% unit-testable. No DB calls, no external APIs.
 
-- [ ] `Watchman.Analysis.Technical` module
-- [ ] SMA, EMA, RSI, z-score, streak, drawdown
-- [ ] `Watchman.Analysis.Indicators` struct (sma7, sma21, sma50, ema21, rsi14, zscore21, streak, drawdown_from_peak)
-- [ ] `Technical.indicators/1` convenience aggregator
-- [ ] Tagged tuple errors on insufficient data — never raise
-- [ ] Exhaustive ExUnit suite with spreadsheet-validated reference values
-- [ ] Not yet wired into `Pipeline` — used directly by Track 4
+- [x] `Watchman.Analysis.Technical` module
+- [x] SMA, EMA, RSI, z-score, streak, drawdown
+- [x] `Watchman.Analysis.Indicators` struct (sma7, sma21, sma50, ema21, rsi14, zscore21, streak, drawdown_from_peak)
+- [x] `Technical.indicators/1` convenience aggregator
+- [x] Tagged tuple errors on insufficient data — never raise
+- [x] Exhaustive ExUnit suite with spreadsheet-validated reference values
+- [x] Not yet wired into `Pipeline` — used directly by Track 4
 
-Detailed prep in [`docs/track-2-technical.md`](docs/track-2-technical.md).
+Detailed prep in [`docs/track-2-technical.md`](docs/track-2-technical.md). Shipped commits: `b31cb54` → `daaee56`. See [`CHANGELOG.md`](CHANGELOG.md).
 
-## v0.5.0 — Track 3: News Provider Layer
+## v0.5.0 — Track 3: News Provider Layer (next)
 
 **Goal:** stop delegating news to the AI provider's web search. Own the audit trail.
 
