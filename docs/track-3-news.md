@@ -15,11 +15,26 @@ with shipped-commit metadata as the track progresses, mirroring
 
 Stop delegating news fetching to the AI provider's web search. Own the
 audit trail by pulling news directly from official Brazilian sources
-(CVM regulatory filings, Infomoney RSS) and persisting them in
-`news_items` with a stable `source` + `category` schema.
+and free financial press feeds, then persist them in `news_items` with
+a stable `source` + `category` schema.
 
 Track 3 fetches and persists news only. It does NOT interpret news
 content — that's Track 4 (Classifier consumes news count + category).
+
+## Coverage: 4 adapters, 8 sources
+
+Per-company IR sites (e.g. `ri.bb.com.br`) were considered but rejected
+for v0.5.0: each has unique HTML, no standardised RSS, layouts shift,
+and CVM already covers every listed company's regulatory disclosures.
+IR adapters return as opt-in extension in a future patch (see "Out of
+scope").
+
+| Adapter | Source(s) | Type |
+|---|---|---|
+| `News.CVM` | CVM (Comissão de Valores Mobiliários) | Regulatory XML, universal coverage |
+| `News.Infomoney` | Infomoney | RSS per ticker |
+| `News.B3` | B3 (Brazilian stock exchange) | Corporate-actions / dividend events |
+| `News.RssFeed` | Valor Econômico, Money Times, InvestNews, Suno Notícias, Brazil Journal | Generic broad-market RSS reader, one module across 5 outlets |
 
 ## Module surface
 
@@ -50,6 +65,25 @@ defmodule Watchman.News.CVM do
 end
 
 defmodule Watchman.News.Infomoney do
+  @behaviour Watchman.News.Provider
+
+  @spec fetch(String.t(), keyword()) ::
+          {:ok, [Watchman.Models.NewsItem.t()]} | {:error, term()}
+end
+
+defmodule Watchman.News.B3 do
+  @behaviour Watchman.News.Provider
+
+  @spec fetch(String.t(), keyword()) ::
+          {:ok, [Watchman.Models.NewsItem.t()]} | {:error, term()}
+end
+
+defmodule Watchman.News.RssFeed do
+  @moduledoc """
+  Generic RSS adapter. Reads the per-outlet URL list from config and
+  pulls each feed, tagging items with the outlet name as the source.
+  """
+
   @behaviour Watchman.News.Provider
 
   @spec fetch(String.t(), keyword()) ::
@@ -88,6 +122,66 @@ title/url/published_at/fetched_at.
   unless the title matches a known dividend/results keyword (document
   the keyword list in `@moduledoc`).
 
+## Adapter C — B3 (corporate actions)
+
+**Endpoint:** `https://arquivos.b3.com.br/` and
+`https://bvmf.bmfbovespa.com.br/` host several open data files. Pick the
+JSON endpoint that returns corporate-action events per ticker (dividend
+ex-dates, splits, subscription rights). The exact path is undocumented
+in places — verify during step 4 and pin the working URL in
+`@moduledoc`.
+
+**Category mapping:**
+- dividend / juros sobre capital próprio → `:dividend`
+- split / inplit / grupamento → `:other`
+- subscription rights / bonifications → `:other`
+
+**Constraints:** keep the payload small (a single ticker request, no
+bulk dumps). If the endpoint requires JSON parsing, `Jason` is already
+in deps — no new dependency. Cache the most recent fetch per ticker in
+memory only (no DB cache) since the data is small.
+
+## Adapter D — Generic RSS reader (5 outlets in one module)
+
+`Watchman.News.RssFeed` consumes a config-provided list of RSS URLs and
+returns merged items. One module covers Valor Econômico, Money Times,
+InvestNews, Suno Notícias, and Brazil Journal — all expose standard
+RSS 2.0 feeds.
+
+**Config:**
+
+```toml
+[news.rss]
+feeds = [
+  { name = "valor",         url = "https://valor.globo.com/empresas/rss/" },
+  { name = "money_times",   url = "https://www.moneytimes.com.br/feed/" },
+  { name = "investnews",    url = "https://investnews.com.br/feed/" },
+  { name = "suno",          url = "https://www.suno.com.br/noticias/feed/" },
+  { name = "brazil_journal", url = "https://braziljournal.com/feed/" }
+]
+```
+
+Each item's `source` field is set to the outlet name (`"valor"`,
+`"money_times"`, etc.) rather than `"rss"`, so reports can break down
+hit rate per outlet.
+
+**Filtering:**
+- These feeds are broad-market (not per-ticker). The adapter filters
+  items by ticker presence in title or summary (case-insensitive
+  substring match on the ticker code and the company name).
+- Company-name lookup table lives at
+  `lib/watchman/news/ticker_aliases.ex` (small map, e.g.
+  `"PETR4" => ["Petrobras", "PETR4"]`). Document that the alias map
+  starts minimal and grows as users register assets.
+- Items with no ticker match are discarded.
+
+**Cap:** 20 items per feed per run (5 × 20 = 100 max items per call).
+After ticker filter, typical yield is 0-3 items per outlet.
+
+**Failure mode:** if one feed errors, log a warning and continue with
+the rest — return the partial merged list. Don't propagate single-feed
+errors to the caller.
+
 ## News.Factory resolution
 
 Same pattern as `Watchman.Market.Factory` and `Watchman.AI.Factory`.
@@ -95,13 +189,17 @@ Config key `news_provider` under `[providers]` in TOML:
 
 ```toml
 [providers]
-news = "cvm"          # use CVM only
-# news = "infomoney"  # use Infomoney only
-# news = "all"        # fetch both, merge, dedupe by URL
+news = "cvm"               # CVM only
+# news = "infomoney"       # Infomoney only
+# news = "b3"              # B3 corporate actions only
+# news = "rss"             # generic RSS feeds only
+# news = "all"             # all four adapters, merged + deduped by URL
+# news = "cvm,b3,rss"      # comma-separated subset
 ```
 
 `Factory.providers/0` returns a list of behaviour modules. When more
-than one, the caller merges and deduplicates by URL.
+than one, the caller fetches each, merges results, and deduplicates by
+URL.
 
 ## Schema changes
 
@@ -127,7 +225,17 @@ end
 validates `source` and `category` via `validate_inclusion`:
 
 ```elixir
-@sources    ~w(cvm infomoney unknown)
+@sources ~w(
+  cvm
+  infomoney
+  b3
+  valor
+  money_times
+  investnews
+  suno
+  brazil_journal
+  unknown
+)
 @categories ~w(material_fact financial_result dividend other)
 ```
 
@@ -168,57 +276,90 @@ iex> Watchman.News.CVM.fetch("PETR4")
 
 | Layer | Cases |
 |-------|-------|
-| Migration | applies + reverts cleanly; indices present |
-| `NewsItem` model | source/category required + inclusion-validated |
-| `News.Factory.providers/0` | resolves `"cvm"` → `[CVM]`; `"infomoney"` → `[Infomoney]`; `"all"` → `[CVM, Infomoney]`; unknown → default |
+| Migration | applies + reverts cleanly; indices present on `source` + `category` |
+| `NewsItem` model | source/category required + inclusion-validated for all 8 source values |
+| `News.Factory.providers/0` | resolves `"cvm"` → `[CVM]`; `"infomoney"` → `[Infomoney]`; `"b3"` → `[B3]`; `"rss"` → `[RssFeed]`; `"all"` → `[CVM, Infomoney, B3, RssFeed]`; comma-separated subset; unknown → default |
 | `News.CVM.fetch/2` | happy path (sample XML fixture); timeout returns `{:error, _}`; malformed XML returns `{:error, _}`; category mapping per known doc-type code |
 | `News.Infomoney.fetch/2` | happy path (sample RSS fixture); 10-item cap honored; timeout `{:error, _}` |
-| Dedup by URL when `"all"` | two adapters returning overlapping URLs → single merged list |
+| `News.B3.fetch/2` | happy path (sample JSON fixture); dividend / split / rights category mapping; timeout returns `{:error, _}` |
+| `News.RssFeed.fetch/2` | happy path with 2 feeds returning items; ticker filter via title/summary substring (matches and rejects); per-outlet source tag; 20-items-per-feed cap honored; one-feed-failure returns the rest (partial OK, not propagated) |
+| Ticker aliases | unknown ticker returns `[ticker]` as the only alias (no crash) |
+| Dedup by URL when `"all"` | overlapping URLs across adapters collapse to one item |
 
 All HTTP calls mocked with Mox. Existing pattern at
 `test/watchman/market/factory_test.exs` is the reference.
 
 ## Ordered task list
 
-1. **Migration** — add `source` + `category` to `news_items`. Update
-   `Watchman.Models.NewsItem` schema + changeset with inclusion lists.
+1. **Migration** — add `source` + `category` to `news_items` with the
+   8-source inclusion list. Update `Watchman.Models.NewsItem` schema +
+   changeset.
 2. **`Watchman.News.Provider` behaviour** — `@callback fetch/2`.
-3. **`Watchman.News.Factory`** — config-driven resolution.
+3. **`Watchman.News.Factory`** — config-driven resolution supporting
+   `"cvm" | "infomoney" | "b3" | "rss" | "all" | "<csv subset>"`.
 4. **`Watchman.News.CVM` adapter** — Req call, XML parse via
    SweetXml, category mapping from doc-type codes, Mox-mocked tests.
 5. **`Watchman.News.Infomoney` adapter** — Req call, RSS parse,
    10-item cap, Mox-mocked tests.
-6. **`SweetXml` dependency** added to `mix.exs` with one-line
-   justification comment.
-7. **Config readers** — `Watchman.Config.news_provider/0` and
-   `news_providers/0` (list form), mirroring `market_provider/0`.
-8. **Optional sanity command** — `wm news TICKER` that fetches via the
-   configured factory and prints. *Skip if it adds CLI surface for
-   Track 3; defer to Track 4 when news + indicators + classifier all
-   land together.*
-9. **`mix.exs` version bump** to `0.5.0`.
-10. **Docs:** mark v0.5.0 done in ROADMAP; update ARCHITECTURE module
-    map (`News.Provider`, `News.CVM`, `News.Infomoney`,
-    `News.Factory` → shipped); add Status block to this document.
+6. **`Watchman.News.B3` adapter** — Req call to the verified
+   corporate-actions endpoint, JSON parse via Jason (already in deps),
+   category mapping for dividend / split / rights, Mox-mocked tests.
+7. **`Watchman.News.TickerAliases`** — small lookup module mapping
+   ticker code to a list of search aliases (ticker + company name).
+   Starts minimal; tested directly.
+8. **`Watchman.News.RssFeed` adapter** — config-driven URL list, ticker
+   filter via TickerAliases, per-outlet source tag, 20-items-per-feed
+   cap, one-feed-fail-tolerated semantics, Mox-mocked tests covering
+   all 5 outlet URLs.
+9. **`SweetXml` dependency** added to `mix.exs` with a justification
+   comment (CVM XML + RSS parsing).
+10. **Config readers** — `Watchman.Config.news_provider/0` and
+    `news_providers/0` (list form). Add `news_rss_feeds/0` returning
+    the configured `[{name, url}]` list for `RssFeed`.
+11. **`mix.exs` version bump** to `0.5.0`.
+12. **Docs:** mark v0.5.0 done in ROADMAP; flip ARCHITECTURE module map
+    rows for `News.Provider`, `News.CVM`, `News.Infomoney`, `News.B3`,
+    `News.RssFeed`, `News.Factory`, `News.TickerAliases` to shipped;
+    add Status block to this document.
 
 Each step is independently committable. Conventional Commits prefix:
-`feat(news):` for steps 1-7, `chore(release):` for step 9, `docs:`
-for step 10.
+`feat(news):` for steps 1-10, `chore(release):` for step 11, `docs:`
+for step 12.
 
-If team mode is used: pre-assign by file. Worker-A on
-`Watchman.News.Provider` + `Watchman.News.Factory` (small,
-sequential); worker-B on `Watchman.News.CVM` + tests; worker-C on
-`Watchman.News.Infomoney` + tests; lead handles migration + docs +
-version bump + mix.exs dep.
+If team mode is used: workers can split by adapter (CVM / Infomoney /
+B3 / RssFeed are disjoint files, true parallelism). Worker-A on
+`Provider` + `Factory` + `TickerAliases` (small); workers B/C/D each
+take one of CVM / Infomoney / B3 adapters; worker-E (or back to A
+after the early steps) takes `RssFeed`. Lead handles migration +
+schema + config + docs + version bump + dep add.
 
-## Out of scope (lands in Track 4)
+## Out of scope (lands in Track 4 or later patches)
+
+**Track 4 (v0.6.0):**
 
 - Wiring news fetch into `Watchman.Pipeline.run/0`.
 - News passed to `Classifier.classify/2` for signal derivation.
 - AI prompt updated to reference news + signal.
-- `wm news TICKER` CLI command (deferred — see task 8 above).
 - Persisting news during normal pipeline runs (Track 4 will call the
   factory inside the per-asset reduce).
+- `wm news TICKER` CLI command (deferred — easier to add alongside
+  Track 4's pipeline integration).
+
+**v0.5.x patches (post-track-3, opt-in extensions):**
+
+- **`Watchman.News.IR` — per-company IR-site adapter.** Each company
+  exposes its own "fatos relevantes" / "comunicados" page (e.g.
+  `ri.bb.com.br`, `investidorpetrobras.com.br`, `vale.com/investors`)
+  with non-standardised HTML. Adapter would hold a config-driven
+  registry mapping ticker → IR URL + CSS selectors, and scrape per
+  company. Not worth the maintenance until CVM coverage shows clear
+  gaps in practice — most price-moving disclosures are already filed
+  via CVM, and IR sites duplicate them.
+
+- **Additional generic-RSS outlets.** Adding a feed to the v0.5.0
+  `News.RssFeed` config is a one-line change once that adapter is
+  shipped. Future candidates: NeoFeed, Exame, IstoÉ Dinheiro, Folha
+  Mercado, Estadão Economia. Each must expose a stable RSS endpoint.
 
 ## References
 
