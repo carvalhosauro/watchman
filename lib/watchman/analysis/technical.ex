@@ -21,6 +21,7 @@ defmodule Watchman.Analysis.Technical do
     * `sma/2` — requires at least `period` snapshots.
     * `ema/2` — requires at least `period` snapshots (SMA-seeded).
     * `rsi/2` — requires at least `period + 1` snapshots.
+    * `zscore/2` — requires at least `period` snapshots and `period >= 2`.
 
   ## EMA seeding
 
@@ -36,7 +37,9 @@ defmodule Watchman.Analysis.Technical do
   ## Z-score variance
 
   Z-score uses **sample variance** (denominator `n - 1`) for consistency with
-  statistical convention on finite windows.
+  statistical convention on finite windows. When the price series is flat
+  (stddev == 0), `zscore/2` returns `{:error, :insufficient_data}` rather
+  than divide-by-zero.
   """
 
   alias Watchman.Models.PriceSnapshot
@@ -105,6 +108,27 @@ defmodule Watchman.Analysis.Technical do
         |> Enum.reduce(seed, fn p, ema_prev -> (p - ema_prev) * multiplier + ema_prev end)
 
       {:ok, result}
+    end
+  end
+
+  @spec zscore([PriceSnapshot.t()], pos_integer()) ::
+          {:ok, float()} | {:error, :insufficient_data}
+  def zscore(snapshots, period \\ 21)
+
+  def zscore(snapshots, period) when is_list(snapshots) and is_integer(period) and period > 0 do
+    if period < 2 or length(snapshots) < period do
+      {:error, :insufficient_data}
+    else
+      prices = snapshots |> Enum.take(-period) |> Enum.map(& &1.price)
+      mean = Enum.sum(prices) / period
+      sum_sq = Enum.sum(Enum.map(prices, fn p -> (p - mean) * (p - mean) end))
+      stddev = :math.sqrt(sum_sq / (period - 1))
+
+      if stddev == 0.0 do
+        {:error, :insufficient_data}
+      else
+        {:ok, (List.last(prices) - mean) / stddev}
+      end
     end
   end
 end

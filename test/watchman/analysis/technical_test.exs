@@ -98,4 +98,34 @@ defmodule Watchman.Analysis.TechnicalTest do
       assert Technical.rsi(Enum.map(1..15, &snap(&1 * 1.0))) == {:ok, 100.0}
     end
   end
+
+  describe "zscore/2" do
+    # Hand-computed, period = 5:
+    #   prices = [10.0, 12.0, 14.0, 16.0, 18.0]
+    #   mean = 70/5 = 14.0
+    #   sum_sq = (10-14)^2+(12-14)^2+(14-14)^2+(16-14)^2+(18-14)^2 = 16+4+0+4+16 = 40
+    #   variance = 40/(5-1) = 10.0  (sample, n-1)
+    #   stddev = sqrt(10) ≈ 3.16228
+    #   z = (18 - 14) / 3.16228 ≈ 1.26491
+    test "reference: sample zscore period 5 → ≈1.26491" do
+      snapshots = Enum.map([10.0, 12.0, 14.0, 16.0, 18.0], &snap/1)
+      {:ok, result} = Technical.zscore(snapshots, 5)
+      assert_in_delta result, 1.26491, 1.0e-4
+    end
+
+    test "insufficient: length < period → {:error, :insufficient_data}" do
+      snapshots = Enum.map([1.0, 2.0], &snap/1)
+      assert Technical.zscore(snapshots, 5) == {:error, :insufficient_data}
+    end
+
+    test "period = 1 → {:error, :insufficient_data} (sample stddev needs n ≥ 2)" do
+      snapshots = Enum.map([1.0, 2.0, 3.0], &snap/1)
+      assert Technical.zscore(snapshots, 1) == {:error, :insufficient_data}
+    end
+
+    test "flat input (all same prices) → {:error, :insufficient_data} (stddev == 0)" do
+      snapshots = Enum.map([5.0, 5.0, 5.0, 5.0, 5.0], &snap/1)
+      assert Technical.zscore(snapshots, 5) == {:error, :insufficient_data}
+    end
+  end
 end
