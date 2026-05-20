@@ -61,23 +61,26 @@ Pure functions. 100% unit-testable. No DB calls, no external APIs.
 
 Detailed prep in [`docs/track-2-technical.md`](docs/track-2-technical.md). Shipped commits: `b31cb54` → `daaee56`. See [`CHANGELOG.md`](CHANGELOG.md).
 
-## v0.5.0 — Track 3: News Provider Layer (next)
+## v0.5.0 — Track 3: News Provider Layer (done)
 
 **Goal:** stop delegating news to the AI provider's web search. Own the audit trail.
 
-- [ ] `Watchman.News.Provider` behaviour (mirrors `Market.Provider` / `AI.Provider`)
-- [ ] `Watchman.News.CVM` adapter — fatos relevantes, ITR, material events
-- [ ] `Watchman.News.Infomoney` adapter — per-ticker RSS feed
-- [ ] `Watchman.News.Factory` with `"cvm" | "infomoney" | "all"` resolution
-- [ ] News categories: `:material_fact | :financial_result | :dividend | :other`
-- [ ] Migration: `source` and `category` columns on `news_items`
-- [ ] Graceful degradation — empty list on provider failure, pipeline continues
-- [ ] HTTP layer mocked with `Mox`
-- [ ] `SweetXml` dependency for CVM/RSS parsing
+- [x] `Watchman.News.Provider` behaviour (mirrors `Market.Provider` / `AI.Provider`)
+- [x] `Watchman.News.CVM` adapter — fatos relevantes, ITR, material events
+- [x] `Watchman.News.Infomoney` adapter — per-ticker RSS feed
+- [x] `Watchman.News.B3` adapter — corporate actions (dividend / split / rights)
+- [x] `Watchman.News.RssFeed` adapter — 5 outlets via config (Valor, Money Times, InvestNews, Suno, Brazil Journal)
+- [x] `Watchman.News.TickerAliases` lookup for the RSS ticker filter
+- [x] `Watchman.News.Factory` with `"cvm" | "infomoney" | "b3" | "rss" | "all" | "<csv>"` resolution
+- [x] News categories: `:material_fact | :financial_result | :dividend | :other`
+- [x] Migration: `source` (whitelisted) and `category` columns on `news_items`
+- [x] Graceful degradation — single feed failure logged + skipped, pipeline continues
+- [x] Mox-mocked Provider behaviour; pure parse_response fixtures per adapter
+- [x] `sweet_xml` dependency for CVM/RSS parsing
 
-Detailed prep in [`docs/track-3-news.md`](docs/track-3-news.md).
+Detailed prep in [`docs/track-3-news.md`](docs/track-3-news.md). Shipped commits: `708d4e5` → `89e5100`. See [`CHANGELOG.md`](CHANGELOG.md).
 
-## v0.6.0 — Track 4: Signal Classifier + Pipeline Integration
+## v0.6.0 — Track 4: Signal Classifier + Pipeline Integration (next)
 
 **Goal:** deterministic signal derived from indicators + news, with AI demoted to enrichment.
 

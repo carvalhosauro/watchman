@@ -118,8 +118,10 @@ enriches the deterministic classification rather than re-deriving it.
 | `Accuracy` | Outcome closer + hit-rate queries | shipped (v0.3.0) |
 | `Analysis.Technical` | Pure indicator functions (SMA, EMA, RSI, …) | shipped (v0.4.0) |
 | `Analysis.Indicators` | Indicator result struct | shipped (v0.4.0) |
-| `News.Provider` | Behaviour for news fetching | Track 3 — v0.5.0 |
-| `News.CVM` / `News.Infomoney` | News adapters | Track 3 — v0.5.0 |
+| `News.Provider` | Behaviour for news fetching | shipped (v0.5.0) |
+| `News.CVM` / `News.Infomoney` / `News.B3` / `News.RssFeed` | News adapters | shipped (v0.5.0) |
+| `News.Factory` | Config-driven adapter resolver | shipped (v0.5.0) |
+| `News.TickerAliases` | Lookup for the RSS ticker filter | shipped (v0.5.0) |
 | `Analysis.Classifier` | Rule engine → `%Signal{}` | Track 4 — v0.6.0 |
 | `AI.Provider` | Behaviour for AI enrichment (now optional) | shipped, signature change in Track 4 |
 

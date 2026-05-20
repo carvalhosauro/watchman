@@ -3,13 +3,24 @@
 Concrete prep for the third realignment track. See
 [`REALIGNMENT.md`](REALIGNMENT.md) for the broader rationale.
 
-## Status — not started
+## Status — shipped v0.5.0
 
-Track 1 (v0.3.0) and Track 2 (v0.4.0) shipped. Track 3 is the next
-active milestone. This document is the work plan; it will be updated
-with shipped-commit metadata as the track progresses, mirroring
-[`track-1-accuracy.md`](track-1-accuracy.md) and
-[`track-2-technical.md`](track-2-technical.md).
+Track 3 shipped as of v0.5.0. Commits `708d4e5` (schema + whitelist)
+through `89e5100` (version bump) on branch `dev`. 4 adapters
+implementing `Watchman.News.Provider` (CVM + Infomoney + B3 +
+RssFeed) cover 8 free news sources. Pure parsing logic on every
+adapter is exercised by hardcoded fixture tests; HTTP fetch wrappers
+follow the existing "tested via integration" convention.
+
+344 tests, 0 failures. Total coverage 70.81%.
+`Watchman.News.Provider` and `Watchman.News.TickerAliases` at 100%;
+`Watchman.News.Factory` at 88.9%.
+
+The task list at the bottom of this document is preserved as the
+historical record of how the track was decomposed.
+
+Wiring into `Watchman.Pipeline.run/0` is intentionally deferred to
+Track 4 (v0.6.0).
 
 ## Goal
 
