@@ -57,4 +57,45 @@ defmodule Watchman.Analysis.TechnicalTest do
       assert Technical.ema(snapshots, 5) == {:error, :insufficient_data}
     end
   end
+
+  describe "rsi/2" do
+    # Wilder-smoothed derivation, period = 3:
+    #   prices = [3.0, 4.0, 3.0, 5.0, 4.0, 6.0]
+    #   deltas = [+1.0, -1.0, +2.0, -1.0, +2.0]
+    #   seed (first 3): avg_gain = (1+0+2)/3 = 1.0, avg_loss = (0+1+0)/3 = 1/3
+    #   d=-1.0: avg_gain = (1.0*2+0)/3 = 2/3, avg_loss = (1/3*2+1)/3 = 5/9
+    #   d=+2.0: avg_gain = (2/3*2+2)/3 = 10/9, avg_loss = (5/9*2+0)/3 = 10/27
+    #   rs = (10/9)/(10/27) = 3.0  →  RSI = 100 - 100/(1+3) = 75.0
+    test "reference: Wilder-smoothed period 3 → 75.0" do
+      snapshots = Enum.map([3.0, 4.0, 3.0, 5.0, 4.0, 6.0], &snap/1)
+      {:ok, result} = Technical.rsi(snapshots, 3)
+      assert_in_delta result, 75.0, 1.0e-4
+    end
+
+    test "all-gain (monotonically increasing) → 100.0" do
+      snapshots = Enum.map([1.0, 2.0, 3.0, 4.0], &snap/1)
+      assert Technical.rsi(snapshots, 3) == {:ok, 100.0}
+    end
+
+    test "all-loss (monotonically decreasing) → 0.0" do
+      snapshots = Enum.map([4.0, 3.0, 2.0, 1.0], &snap/1)
+      assert Technical.rsi(snapshots, 3) == {:ok, 0.0}
+    end
+
+    test "flat input (all same prices) → 100.0 (avg_loss == 0 convention)" do
+      # avg_gain == 0 and avg_loss == 0; avg_loss == 0 check fires first → 100.0
+      snapshots = Enum.map([5.0, 5.0, 5.0, 5.0], &snap/1)
+      assert Technical.rsi(snapshots, 3) == {:ok, 100.0}
+    end
+
+    test "insufficient: < period+1 snapshots → {:error, :insufficient_data}" do
+      snapshots = Enum.map([1.0, 2.0, 3.0], &snap/1)
+      assert Technical.rsi(snapshots, 3) == {:error, :insufficient_data}
+    end
+
+    test "default period 14: 14 snapshots → insufficient, 15 all-gain → 100.0" do
+      assert Technical.rsi(Enum.map(1..14, &snap(&1 * 1.0))) == {:error, :insufficient_data}
+      assert Technical.rsi(Enum.map(1..15, &snap(&1 * 1.0))) == {:ok, 100.0}
+    end
+  end
 end
