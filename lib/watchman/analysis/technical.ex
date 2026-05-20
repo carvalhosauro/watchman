@@ -71,10 +71,7 @@ defmodule Watchman.Analysis.Technical do
     if length(snapshots) < period do
       {:error, :insufficient_data}
     else
-      prices =
-        snapshots
-        |> Enum.take(-period)
-        |> Enum.map(& &1.price)
+      prices = prices(snapshots, period)
 
       {:ok, Enum.sum(prices) / period}
     end
@@ -87,6 +84,9 @@ defmodule Watchman.Analysis.Technical do
     if length(snapshots) < period + 1 do
       {:error, :insufficient_data}
     else
+      # Wilder smoothing requires the full delta sequence (every consecutive
+      # pair from oldest to newest), so the full price list is mapped up
+      # front rather than via the prices/2 helper used by sma/zscore/drawdown.
       prices = Enum.map(snapshots, & &1.price)
 
       deltas =
@@ -160,7 +160,7 @@ defmodule Watchman.Analysis.Technical do
     if period < 2 or length(snapshots) < period do
       {:error, :insufficient_data}
     else
-      prices = snapshots |> Enum.take(-period) |> Enum.map(& &1.price)
+      prices = prices(snapshots, period)
       mean = Enum.sum(prices) / period
       sum_sq = Enum.sum(Enum.map(prices, fn p -> (p - mean) * (p - mean) end))
       stddev = :math.sqrt(sum_sq / (period - 1))
@@ -179,7 +179,7 @@ defmodule Watchman.Analysis.Technical do
     if length(snapshots) < period do
       {:error, :insufficient_data}
     else
-      prices = snapshots |> Enum.take(-period) |> Enum.map(& &1.price)
+      prices = prices(snapshots, period)
       peak = Enum.max(prices)
       last = List.last(prices)
       {:ok, (last - peak) / peak * 100.0}
@@ -235,5 +235,12 @@ defmodule Watchman.Analysis.Technical do
     else
       {:ok, %{direction: direction, days: count}}
     end
+  end
+
+  # Extract the last `period` prices, oldest → newest.
+  defp prices(snapshots, period) do
+    snapshots
+    |> Enum.take(-period)
+    |> Enum.map(& &1.price)
   end
 end
