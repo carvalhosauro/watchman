@@ -1,6 +1,8 @@
 defmodule Watchman.Config do
   @moduledoc "Configuration loading and access."
 
+  alias Watchman.News.RssFeed
+
   @config_path "~/.config/watchman/config.toml"
 
   def load do
@@ -86,6 +88,28 @@ defmodule Watchman.Config do
       name when is_binary(name) -> Map.get(@market_map, name, Watchman.Market.Brapi)
       _ -> Watchman.Market.Brapi
     end
+  end
+
+  # News
+
+  @spec news_provider() :: String.t()
+  def news_provider do
+    case toml_get(["providers", "news"]) do
+      name when is_binary(name) -> name
+      _ -> "cvm"
+    end
+  end
+
+  @spec news_rss_feeds() :: [%{name: String.t(), url: String.t()}]
+  def news_rss_feeds do
+    case toml_get(["news", "rss", "feeds"]) do
+      list when is_list(list) -> Enum.map(list, &normalize_feed/1)
+      _ -> RssFeed.default_feeds()
+    end
+  end
+
+  defp normalize_feed(%{} = entry) do
+    %{name: entry["name"] || entry[:name], url: entry["url"] || entry[:url]}
   end
 
   # Pipeline settings
