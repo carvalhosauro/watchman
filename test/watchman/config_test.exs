@@ -60,4 +60,34 @@ defmodule Watchman.ConfigTest do
       assert Config.task_timeout() == 60_000
     end
   end
+
+  describe "accuracy_lookahead_days/0" do
+    test "defaults to 5 when no TOML" do
+      Application.put_env(:watchman, :toml_config, %{})
+      assert Config.accuracy_lookahead_days() == 5
+    end
+
+    test "reads from TOML" do
+      Application.put_env(:watchman, :toml_config, %{"accuracy" => %{"lookahead_days" => 10}})
+      assert Config.accuracy_lookahead_days() == 10
+    end
+  end
+
+  describe "accuracy_drop_threshold_pct/0" do
+    test "defaults to 3.0 when no TOML" do
+      Application.put_env(:watchman, :toml_config, %{})
+      assert Config.accuracy_drop_threshold_pct() == 3.0
+    end
+
+    test "reads float from TOML" do
+      Application.put_env(:watchman, :toml_config, %{"accuracy" => %{"drop_threshold_pct" => 2.5}})
+
+      assert Config.accuracy_drop_threshold_pct() == 2.5
+    end
+
+    test "coerces integer to float" do
+      Application.put_env(:watchman, :toml_config, %{"accuracy" => %{"drop_threshold_pct" => 4}})
+      assert Config.accuracy_drop_threshold_pct() == 4.0
+    end
+  end
 end

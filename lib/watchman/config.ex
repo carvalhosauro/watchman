@@ -99,6 +99,21 @@ defmodule Watchman.Config do
     seconds * 1_000
   end
 
+  # Accuracy
+
+  @spec accuracy_lookahead_days() :: pos_integer()
+  def accuracy_lookahead_days do
+    toml_get(["accuracy", "lookahead_days"]) || 5
+  end
+
+  @spec accuracy_drop_threshold_pct() :: float()
+  def accuracy_drop_threshold_pct do
+    case toml_get(["accuracy", "drop_threshold_pct"]) do
+      n when is_number(n) -> n * 1.0
+      _ -> 3.0
+    end
+  end
+
   # Storage
 
   def db_path do
