@@ -66,6 +66,12 @@ defmodule Watchman.Accuracy do
 
   def classify_outcome("investigar", _variation_pct, _drop_threshold_pct), do: :neutral
 
+  def classify_outcome(other, _variation_pct, _drop_threshold_pct) when is_binary(other) do
+    Logger.warning("Accuracy: unknown recommendation #{inspect(other)}, classifying as :neutral")
+
+    :neutral
+  end
+
   @spec close_pending_outcomes() :: %{closed: non_neg_integer(), skipped: non_neg_integer()}
   def close_pending_outcomes do
     lookahead_days = Config.accuracy_lookahead_days()
@@ -74,7 +80,9 @@ defmodule Watchman.Accuracy do
 
     candidates =
       from(a in Analysis,
-        where: not is_nil(a.snapshot_id),
+        left_join: ao in AnalysisOutcome,
+        on: ao.analysis_id == a.id,
+        where: not is_nil(a.snapshot_id) and is_nil(ao.id),
         preload: [:snapshot]
       )
       |> Repo.all()
@@ -154,6 +162,27 @@ defmodule Watchman.Accuracy do
   defp do_close(analysis, target_date, lookahead_days, drop_threshold_pct) do
     baseline_price = analysis.snapshot.price
 
+    if baseline_price == 0.0 do
+      Logger.warning("Accuracy: skipping analysis #{analysis.id} due to zero baseline_price")
+      :skipped
+    else
+      do_close_with_baseline(
+        analysis,
+        target_date,
+        lookahead_days,
+        drop_threshold_pct,
+        baseline_price
+      )
+    end
+  end
+
+  defp do_close_with_baseline(
+         analysis,
+         target_date,
+         lookahead_days,
+         drop_threshold_pct,
+         baseline_price
+       ) do
     case find_observed_snapshot(analysis.asset_id, target_date) do
       nil ->
         :skipped
@@ -178,14 +207,33 @@ defmodule Watchman.Accuracy do
           evaluated_at: DateTime.truncate(DateTime.utc_now(), :second)
         }
 
-        case Repo.insert(AnalysisOutcome.changeset(%AnalysisOutcome{}, attrs)) do
-          {:ok, _} ->
-            Logger.info("Closed outcome for analysis #{analysis.id}: #{outcome_str}")
-            :closed
+        persist_outcome(analysis, outcome_str, attrs)
+    end
+  end
 
-          {:error, _changeset} ->
-            :skipped
+  defp persist_outcome(analysis, outcome_str, attrs) do
+    case Repo.insert(AnalysisOutcome.changeset(%AnalysisOutcome{}, attrs)) do
+      {:ok, _} ->
+        Logger.info("Closed outcome for analysis #{analysis.id}: #{outcome_str}")
+        :closed
+
+      {:error, changeset} ->
+        if unique_analysis_id_violation?(changeset) do
+          :skipped
+        else
+          Logger.warning(
+            "Accuracy: failed to persist outcome for analysis #{analysis.id}: #{inspect(changeset.errors)}"
+          )
+
+          :skipped
         end
+    end
+  end
+
+  defp unique_analysis_id_violation?(%Ecto.Changeset{errors: errors}) do
+    case Keyword.get(errors, :analysis_id) do
+      {_, opts} when is_list(opts) -> Keyword.get(opts, :constraint) == :unique
+      _ -> false
     end
   end
 
@@ -196,7 +244,7 @@ defmodule Watchman.Accuracy do
       from(ps in PriceSnapshot,
         where: ps.asset_id == ^asset_id,
         where: ps.fetched_at >= ^start_of_day,
-        order_by: [desc: ps.fetched_at],
+        order_by: [asc: ps.fetched_at],
         limit: 1
       )
     )

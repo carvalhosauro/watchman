@@ -57,10 +57,10 @@ defmodule Watchman.AccuracyTest do
       assert Accuracy.classify_outcome("investigar", -99.9, 3.0) == :neutral
     end
 
-    test "unknown recommendation raises FunctionClauseError" do
-      assert_raise FunctionClauseError, fn ->
-        Accuracy.classify_outcome("comprar", 1.0, 3.0)
-      end
+    test "unknown recommendation logs warning and returns :neutral" do
+      import ExUnit.CaptureLog
+      log = capture_log(fn -> assert Accuracy.classify_outcome("comprar", 1.0, 3.0) == :neutral end)
+      assert log =~ "unknown recommendation"
     end
   end
 
@@ -185,7 +185,49 @@ defmodule Watchman.AccuracyTest do
       assert Repo.aggregate(AnalysisOutcome, :count) == 0
     end
 
-    test "re-running after success is idempotent — second run counts as skipped", %{
+    test "skips analysis when baseline_price is 0.0 without crashing", %{asset2: asset2} do
+      {:ok, zero_baseline} =
+        Repo.insert(
+          PriceSnapshot.changeset(%PriceSnapshot{}, %{
+            asset_id: asset2.id,
+            price: 0.0,
+            fetched_at: dt_days_ago(60)
+          })
+        )
+
+      # Provide an observed snapshot AFTER the lookahead target so the closer
+      # gets past find_observed_snapshot and hits the baseline guard.
+      {:ok, _observed} =
+        Repo.insert(
+          PriceSnapshot.changeset(%PriceSnapshot{}, %{
+            asset_id: asset2.id,
+            price: 10.0,
+            fetched_at: dt_days_ago(10)
+          })
+        )
+
+      {:ok, _analysis} =
+        Repo.insert(
+          Analysis.changeset(%Analysis{}, %{
+            asset_id: asset2.id,
+            snapshot_id: zero_baseline.id,
+            recommendation: "manter",
+            analyzed_at: dt_days_ago(30)
+          })
+        )
+
+      log =
+        ExUnit.CaptureLog.capture_log(fn ->
+          result = Accuracy.close_pending_outcomes()
+          assert result.closed == 0
+          assert result.skipped >= 1
+        end)
+
+      assert log =~ "zero baseline_price"
+      assert Repo.aggregate(AnalysisOutcome, :count) == 0
+    end
+
+    test "re-running after success is idempotent — second run is a no-op", %{
       asset: asset,
       baseline: baseline
     } do
@@ -204,10 +246,12 @@ defmodule Watchman.AccuracyTest do
       assert first.skipped == 0
       assert Repo.aggregate(AnalysisOutcome, :count) == 1
 
+      # F1 (LEFT JOIN analysis_outcomes IS NULL) filters out already-closed
+      # analyses BEFORE the reduce, so the second run finds no candidates at
+      # all — both counters stay at zero and no new rows are inserted.
       second = Accuracy.close_pending_outcomes()
       assert second.closed == 0
-      assert second.skipped == 1
-      # No new rows inserted
+      assert second.skipped == 0
       assert Repo.aggregate(AnalysisOutcome, :count) == 1
     end
 
@@ -228,7 +272,7 @@ defmodule Watchman.AccuracyTest do
       assert Repo.aggregate(AnalysisOutcome, :count) == 0
     end
 
-    test "mixed batch: 1 closable, 1 too early, 1 already closed returns %{closed: 1, skipped: 2}",
+    test "mixed batch: 1 closable, 1 too early, 1 already closed returns %{closed: 1, skipped: 1}",
          %{asset: asset} do
       # Each analysis needs a distinct snapshot to satisfy the
       # analyses_asset_id_snapshot_id_index unique constraint.
@@ -319,7 +363,10 @@ defmodule Watchman.AccuracyTest do
 
       result = Accuracy.close_pending_outcomes()
 
-      assert result == %{closed: 1, skipped: 2}
+      # already_closed is excluded from candidates by F1's LEFT JOIN filter,
+      # so it does not appear in the skipped count. closable closes, too_early
+      # is skipped for lookahead-not-elapsed.
+      assert result == %{closed: 1, skipped: 1}
     end
   end
 
