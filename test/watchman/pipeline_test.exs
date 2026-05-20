@@ -14,10 +14,16 @@ defmodule Watchman.PipelineTest do
 
     Application.put_env(:watchman, :market_provider_override, Watchman.Market.MockProvider)
     Application.put_env(:watchman, :ai_provider_override, Watchman.AI.MockProvider)
+    Application.put_env(:watchman, :news_providers_override, [Watchman.News.MockProvider])
+
+    # Default: every test gets the "no news from any provider" stub. Individual
+    # tests that need news fixtures override via expect/3.
+    stub(Watchman.News.MockProvider, :fetch, fn _ticker, _opts -> {:ok, []} end)
 
     on_exit(fn ->
       Application.delete_env(:watchman, :market_provider_override)
       Application.delete_env(:watchman, :ai_provider_override)
+      Application.delete_env(:watchman, :news_providers_override)
     end)
 
     :ok
@@ -101,7 +107,7 @@ defmodule Watchman.PipelineTest do
         {:ok, mock_price_data()}
       end)
 
-      expect(Watchman.AI.MockProvider, :analyze, fn _asset, _snapshot ->
+      expect(Watchman.AI.MockProvider, :analyze, fn _asset, _snapshot, _signal, _news ->
         {:ok, mock_analysis_result(), []}
       end)
 
@@ -111,10 +117,14 @@ defmodule Watchman.PipelineTest do
         end)
 
       assert output =~ "PETR4"
-      assert output =~ "manter"
+      # Track 4: status line shows Signal level + direction, not the
+      # AI-derived recommendation. recommendation is persisted to the DB.
+      assert output =~ "PETR4 — noise neutral"
 
       asset_id = asset.id
       assert Repo.exists?(from a in Analysis, where: a.asset_id == ^asset_id)
+      analysis = Repo.one(from a in Analysis, where: a.asset_id == ^asset_id)
+      assert analysis.recommendation == "manter"
     end
 
     test "run/0 returns :ok and prints summary" do
@@ -124,7 +134,7 @@ defmodule Watchman.PipelineTest do
         {:ok, mock_price_data()}
       end)
 
-      expect(Watchman.AI.MockProvider, :analyze, fn _asset, _snapshot ->
+      expect(Watchman.AI.MockProvider, :analyze, fn _asset, _snapshot, _signal, _news ->
         {:ok, mock_analysis_result(), []}
       end)
 
@@ -136,6 +146,9 @@ defmodule Watchman.PipelineTest do
       assert output =~ "PETR4"
       assert output =~ "Summary"
       assert output =~ "Analyzed"
+      # Track 4: per-asset status line shows the deterministic Signal level +
+      # direction, not the AI-derived recommendation atom.
+      assert output =~ "PETR4 — noise neutral"
     end
 
     test "skips asset already analyzed today" do
@@ -169,14 +182,14 @@ defmodule Watchman.PipelineTest do
       assert output =~ "Failed"
     end
 
-    test "handles AI provider error gracefully" do
-      _asset = insert_asset()
+    test "handles AI provider error gracefully via SignalFormatter fallback" do
+      asset = insert_asset()
 
       expect(Watchman.Market.MockProvider, :fetch, fn "PETR4" ->
         {:ok, mock_price_data()}
       end)
 
-      expect(Watchman.AI.MockProvider, :analyze, fn _asset, _snapshot ->
+      expect(Watchman.AI.MockProvider, :analyze, fn _asset, _snapshot, _signal, _news ->
         {:error, :api_error}
       end)
 
@@ -185,8 +198,17 @@ defmodule Watchman.PipelineTest do
           Watchman.Pipeline.run()
         end)
 
-      assert output =~ "PETR4"
-      assert output =~ "Failed"
+      # Track 4: AI failure no longer fails the pipeline. The fallback uses
+      # SignalFormatter to populate justification with zero tokens spent and
+      # the recommendation derived deterministically from the Signal.
+      assert output =~ "PETR4 — noise neutral"
+      assert output =~ "Analyzed"
+
+      asset_id = asset.id
+      analysis = Repo.one(from a in Analysis, where: a.asset_id == ^asset_id)
+      assert analysis.tokens_used == 0
+      assert analysis.recommendation == "manter"
+      assert analysis.signal_level == "noise"
     end
 
     test "only processes active assets" do
@@ -217,7 +239,7 @@ defmodule Watchman.PipelineTest do
         {:ok, mock_price_data()}
       end)
 
-      expect(Watchman.AI.MockProvider, :analyze, fn _asset, _snapshot ->
+      expect(Watchman.AI.MockProvider, :analyze, fn _asset, _snapshot, _signal, _news ->
         {:ok, mock_analysis_result(), news}
       end)
 
@@ -272,7 +294,7 @@ defmodule Watchman.PipelineTest do
         {:ok, Map.put(mock_price_data(), :ticker, ticker)}
       end)
 
-      expect(Watchman.AI.MockProvider, :analyze, 2, fn _asset, _snapshot ->
+      expect(Watchman.AI.MockProvider, :analyze, 2, fn _asset, _snapshot, _signal, _news ->
         {:ok, mock_analysis_result(), []}
       end)
 
