@@ -42,6 +42,47 @@ defmodule Watchman.AI.Gemini do
   end
 
   @impl true
+  def analyze(asset, snapshot, signal, news) do
+    url = "#{@base_url}/models/#{@model}:generateContent"
+    recommendation = Shared.recommendation_from_signal(signal)
+
+    body = %{
+      system_instruction: %{
+        parts: [%{text: Shared.system_prompt_with_signal(:search_grounding, signal)}]
+      },
+      contents: [
+        %{
+          role: "user",
+          parts: [%{text: Shared.user_prompt_with_signal(asset, snapshot, signal, news)}]
+        }
+      ],
+      tools: [%{google_search: %{}}],
+      generationConfig: %{temperature: 0.7, maxOutputTokens: 600}
+    }
+
+    case Req.post(url,
+           json: body,
+           params: [key: Watchman.Config.gemini_api_key()],
+           receive_timeout: 90_000,
+           retry: :transient,
+           max_retries: 3
+         ) do
+      {:ok, %Req.Response{status: 200, body: resp}} ->
+        tokens = get_in(resp, ["usageMetadata", "totalTokenCount"]) || 0
+        text = extract_text(resp)
+        returned_news = extract_grounding_sources(resp)
+        analysis = Shared.parse_analysis(text, tokens)
+        {:ok, %{analysis | recommendation: recommendation}, returned_news}
+
+      {:ok, %Req.Response{status: status, body: resp_body}} ->
+        {:error, {:gemini_api, status, resp_body}}
+
+      {:error, reason} ->
+        {:error, {:gemini_request, reason}}
+    end
+  end
+
+  @impl true
   def generate_retro(prompt) do
     url = "#{@base_url}/models/#{@model}:generateContent"
 
