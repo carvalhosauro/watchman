@@ -3,17 +3,33 @@
 Concrete prep for the fourth realignment track. See
 [`REALIGNMENT.md`](REALIGNMENT.md) for the broader rationale.
 
-## Status — not started
+## Status — shipped v0.6.0
 
-Track 1 (v0.3.0), Track 2 (v0.4.0), and Track 3 (v0.5.0) shipped. This
-is the integration track that ties them together: the deterministic
-classifier consumes the indicators (Track 2) and news items (Track 3),
-the pipeline orchestrates everything, and the AI provider is demoted
-to optional narrative enrichment.
+Track 4 shipped on branch `dev`. 456 tests pass, 0 failures. Total
+coverage 75.12% (above the 60 threshold).
+`Watchman.Analysis.Classifier` at 98.33%; `Signal`, `SignalFormatter`,
+`Classifier.Rule`, `Indicators`, `Technical` all at 100%.
 
-Track 4 must ship before Track 5 (v0.7.0 daemon paradigm shift). Track
-5 reuses the Pipeline rewritten here — it only changes the invocation
-site from the CLI to a GenServer scheduler.
+Implementation walked the 12-step ordered task list at the bottom of
+this document. The team-mode split landed in this order:
+
+- worker-classifier → `Watchman.Analysis.Classifier` (9-rule engine
+  via grouped private functions because Elixir cannot escape
+  anonymous functions through module attributes) + `SignalFormatter`
+- worker-schema → migration adding `signal_level / signal_direction
+  / signal_reasons / signal_confidence` to `analyses` plus indices,
+  changeset validation via `Signal.levels/0` / `directions/0`
+- worker-ai → `analyze/4` callback alongside the existing `analyze/2`,
+  Claude/Gemini/Deepseek prompt updates, `Shared.recommendation_from_signal/1`
+  taxonomy bridge
+- worker-alerts → `Dispatcher.maybe_notify_signal/3` +
+  `[alerts.signal]` config readers
+- lead → `Pipeline` rewrite (news + history + indicators + signal +
+  AI enrichment with graceful fallback), version bump, docs
+
+`Track 5` (v0.7.0 daemon paradigm shift) reuses this Pipeline — only
+the invocation site changes (from `wm run` to a GenServer
+scheduler).
 
 ## Goal
 

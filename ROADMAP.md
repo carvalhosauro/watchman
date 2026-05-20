@@ -80,23 +80,25 @@ Detailed prep in [`docs/track-2-technical.md`](docs/track-2-technical.md). Shipp
 
 Detailed prep in [`docs/track-3-news.md`](docs/track-3-news.md). Shipped commits: `708d4e5` → `89e5100`. See [`CHANGELOG.md`](CHANGELOG.md).
 
-## v0.6.0 — Track 4: Signal Classifier + Pipeline Integration (next)
+## v0.6.0 — Track 4: Signal Classifier + Pipeline Integration (done)
 
 **Goal:** deterministic signal derived from indicators + news, with AI demoted to enrichment.
 
-- [ ] `Watchman.Analysis.Classifier.classify/2` returning `%Signal{level, direction, reasons, confidence}`
-- [ ] Rule engine: ordered list of rule structs evaluated in priority order
-- [ ] Exhaustive branch-coverage tests (every rule fires and doesn't-fire)
-- [ ] `Pipeline` rewrite: parallel news + price fetch, indicators, signal, optional AI enrichment
-- [ ] AI prompts updated to receive `%Signal{}` as context (reference, not re-derive)
-- [ ] Signal formatter for AI-less mode
-- [ ] Outcome closer (Track 1) invoked before writing new analyses
+- [x] `Watchman.Analysis.Classifier.classify/2` returning `%Signal{level, direction, reasons, confidence}`
+- [x] Rule engine: ordered list of rule structs evaluated in priority order
+- [x] Exhaustive branch-coverage tests (every rule fires and doesn't-fire)
+- [x] `Pipeline` rewrite: news + price fetch + history load, indicators, signal, optional AI enrichment
+- [x] AI prompts updated to receive `%Signal{}` as context (reference, not re-derive)
+- [x] Signal formatter for AI-less mode (graceful AI-failure fallback)
+- [x] Outcome closer (Track 1) invoked before writing new analyses
+- [x] Schema: 4 new `signal_*` columns on `analyses` + indices
+- [x] Signal-based alerts via `Dispatcher.maybe_notify_signal/3`
 
-Detailed prep in [`docs/track-4-classifier.md`](docs/track-4-classifier.md).
+Detailed prep in [`docs/track-4-classifier.md`](docs/track-4-classifier.md). Shipped this session.
 
 ---
 
-## v0.7.0 — Track 5: Daemon paradigm shift
+## v0.7.0 — Track 5: Daemon paradigm shift (next)
 
 > **Breaking architectural change.** The current `wm run` invocation
 > driven by cron / systemd timer is replaced by a long-lived OTP

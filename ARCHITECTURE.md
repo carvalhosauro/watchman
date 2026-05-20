@@ -139,8 +139,10 @@ enriches the deterministic classification rather than re-deriving it.
 | `News.CVM` / `News.Infomoney` / `News.B3` / `News.RssFeed` | News adapters | shipped (v0.5.0) |
 | `News.Factory` | Config-driven adapter resolver | shipped (v0.5.0) |
 | `News.TickerAliases` | Lookup for the RSS ticker filter | shipped (v0.5.0) |
-| `Analysis.Classifier` | Rule engine → `%Signal{}` | Track 4 — v0.6.0 |
-| `AI.Provider` | Behaviour for AI enrichment (now optional) | shipped, signature change in Track 4 |
+| `Analysis.Signal` | Classifier result struct | shipped (v0.6.0) |
+| `Analysis.Classifier` / `Classifier.Rule` | Rule engine → `%Signal{}` | shipped (v0.6.0) |
+| `Analysis.SignalFormatter` | Plain-text rendering for AI-less mode | shipped (v0.6.0) |
+| `AI.Provider` | Behaviour for AI enrichment (now optional) | shipped, `analyze/4` added in v0.6.0 |
 
 ## Branching
 
