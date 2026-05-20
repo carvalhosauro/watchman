@@ -23,6 +23,7 @@ defmodule Watchman.Analysis.Technical do
     * `rsi/2` — requires at least `period + 1` snapshots.
     * `zscore/2` — requires at least `period` snapshots and `period >= 2`.
     * `streak/1` — no minimum; empty/single → `%{direction: :up, days: 0}`, never errors.
+    * `drawdown/2` — requires at least `period` snapshots.
 
   ## EMA seeding
 
@@ -34,6 +35,12 @@ defmodule Watchman.Analysis.Technical do
   RSI uses Wilder smoothing (multiplier `1/period`). When `avg_loss == 0`,
   RSI returns `100.0` by convention to avoid division by zero. This applies
   to both the all-gain and the flat (zero-delta) cases.
+
+  ## Drawdown from peak
+
+  `drawdown/2` measures `(last - peak) / peak * 100` over the last `period`
+  snapshots. The result is always non-positive. Returns `0.0` when the last
+  price equals the window peak.
 
   ## Streak conventions
 
@@ -155,6 +162,19 @@ defmodule Watchman.Analysis.Technical do
       else
         {:ok, (List.last(prices) - mean) / stddev}
       end
+    end
+  end
+
+  @spec drawdown([PriceSnapshot.t()], pos_integer()) ::
+          {:ok, float()} | {:error, :insufficient_data}
+  def drawdown(snapshots, period) when is_list(snapshots) and is_integer(period) and period > 0 do
+    if length(snapshots) < period do
+      {:error, :insufficient_data}
+    else
+      prices = snapshots |> Enum.take(-period) |> Enum.map(& &1.price)
+      peak = Enum.max(prices)
+      last = List.last(prices)
+      {:ok, (last - peak) / peak * 100.0}
     end
   end
 

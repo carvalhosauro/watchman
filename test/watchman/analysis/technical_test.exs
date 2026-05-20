@@ -159,4 +159,28 @@ defmodule Watchman.Analysis.TechnicalTest do
       assert Technical.streak([snap(5.0)]) == {:ok, %{direction: :up, days: 0}}
     end
   end
+
+  describe "drawdown/2" do
+    test "at peak: [8,9,10] period 3 → 0.0" do
+      snapshots = Enum.map([8.0, 9.0, 10.0], &snap/1)
+      assert Technical.drawdown(snapshots, 3) == {:ok, 0.0}
+    end
+
+    test "20% drawdown: [10,9,8] period 3 → -20.0" do
+      snapshots = Enum.map([10.0, 9.0, 8.0], &snap/1)
+      {:ok, result} = Technical.drawdown(snapshots, 3)
+      assert_in_delta result, -20.0, 1.0e-4
+    end
+
+    test "mid-history peak: [5,10,8] period 3 → -20.0" do
+      snapshots = Enum.map([5.0, 10.0, 8.0], &snap/1)
+      {:ok, result} = Technical.drawdown(snapshots, 3)
+      assert_in_delta result, -20.0, 1.0e-4
+    end
+
+    test "insufficient: length < period → {:error, :insufficient_data}" do
+      snapshots = Enum.map([1.0, 2.0], &snap/1)
+      assert Technical.drawdown(snapshots, 5) == {:error, :insufficient_data}
+    end
+  end
 end
