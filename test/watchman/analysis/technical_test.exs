@@ -41,6 +41,10 @@ defmodule Watchman.Analysis.TechnicalTest do
     #   ema_1 = (13 - 12.0) * 0.5 + 12.0 = 12.5
     #   ema_2 = (15 - 12.5) * 0.5 + 12.5 = 13.75
     #   ema_3 = (16 - 13.75) * 0.5 + 13.75 = 14.875
+    # SMA-seeded EMA convention LOCK:
+    # A first-price-seeded EMA (ema_0 = first_price = 10.0) on this same
+    # series would produce a different value at step 5. The 14.875 here
+    # only matches SMA-seeding (ema_0 = sma3 of first 3 prices = 12.0).
     test "reference: period 3 over 6 prices → 14.875" do
       snapshots = Enum.map([10.0, 12.0, 14.0, 13.0, 15.0, 16.0], &snap/1)
       {:ok, result} = Technical.ema(snapshots, 3)
@@ -67,6 +71,11 @@ defmodule Watchman.Analysis.TechnicalTest do
     #   d=-1.0: avg_gain = (1.0*2+0)/3 = 2/3, avg_loss = (1/3*2+1)/3 = 5/9
     #   d=+2.0: avg_gain = (2/3*2+2)/3 = 10/9, avg_loss = (5/9*2+0)/3 = 10/27
     #   rs = (10/9)/(10/27) = 3.0  →  RSI = 100 - 100/(1+3) = 75.0
+    # Wilder smoothing convention LOCK:
+    # A simple-average RSI (avg_gain/avg_loss recomputed as plain means
+    # over all deltas each step) on this series would give a different
+    # final rs and rsi. The 75.0 only matches Wilder's recurrence:
+    #   ag_n = (ag_(n-1) * (period - 1) + max(d, 0)) / period
     test "reference: Wilder-smoothed period 3 → 75.0" do
       snapshots = Enum.map([3.0, 4.0, 3.0, 5.0, 4.0, 6.0], &snap/1)
       {:ok, result} = Technical.rsi(snapshots, 3)
@@ -76,6 +85,13 @@ defmodule Watchman.Analysis.TechnicalTest do
     test "all-gain (monotonically increasing) → 100.0" do
       snapshots = Enum.map([1.0, 2.0, 3.0, 4.0], &snap/1)
       assert Technical.rsi(snapshots, 3) == {:ok, 100.0}
+    end
+
+    test "period + 1 snapshots is the minimum legal input (all-gain → 100.0)" do
+      # period = 3 needs 4 snapshots minimum. All-gain → avg_loss = 0 → 100.0
+      snapshots = Enum.map([1.0, 2.0, 3.0, 4.0], &snap/1)
+      {:ok, rsi} = Technical.rsi(snapshots, 3)
+      assert_in_delta rsi, 100.0, 1.0e-9
     end
 
     test "all-loss (monotonically decreasing) → 0.0" do
@@ -112,6 +128,17 @@ defmodule Watchman.Analysis.TechnicalTest do
       snapshots = Enum.map([10.0, 12.0, 14.0, 16.0, 18.0], &snap/1)
       {:ok, result} = Technical.zscore(snapshots, 5)
       assert_in_delta result, 1.26491, 1.0e-4
+    end
+
+    test "period = 2 (lowest legal value) computes sample stddev correctly" do
+      # prices = [1.0, 3.0], period 2
+      # mean = 2.0
+      # sample variance = ((1-2)^2 + (3-2)^2) / (2-1) = 2.0
+      # stddev = sqrt(2) ≈ 1.41421
+      # z = (3 - 2) / 1.41421 ≈ 0.70711
+      snapshots = Enum.map([1.0, 3.0], &snap/1)
+      {:ok, z} = Technical.zscore(snapshots, 2)
+      assert_in_delta z, 0.70711, 1.0e-4
     end
 
     test "insufficient: length < period → {:error, :insufficient_data}" do
@@ -151,6 +178,14 @@ defmodule Watchman.Analysis.TechnicalTest do
     test "broken by flat last pair: [1,2,3,3] → days 0" do
       snapshots = Enum.map([1.0, 2.0, 3.0, 3.0], &snap/1)
       assert Technical.streak(snapshots) == {:ok, %{direction: :up, days: 0}}
+    end
+
+    test "flat pair MID-sequence resets streak; counts subsequent direction only" do
+      # [1,2,3,3,4,5]: the 3->3 flat breaks the streak. After the flat, 3->4 and
+      # 4->5 are two up days. streak/1 walks from newest back and stops at the
+      # flat, so days = 2 (not 4).
+      snapshots = Enum.map([1.0, 2.0, 3.0, 3.0, 4.0, 5.0], &snap/1)
+      assert Technical.streak(snapshots) == {:ok, %{direction: :up, days: 2}}
     end
 
     test "mixed: [1,2,3,2,3,4] → up days 2" do
@@ -205,6 +240,11 @@ defmodule Watchman.Analysis.TechnicalTest do
       assert ind.streak.direction in [:up, :down]
       assert is_integer(ind.streak.days) and ind.streak.days >= 0
       assert ind.drawdown_from_peak <= 0.0
+    end
+
+    test "happy path at exactly 50 snapshots (the documented floor)" do
+      snapshots = for i <- 1..50, do: snap(100.0 + i / 10)
+      assert {:ok, %Watchman.Analysis.Indicators{}} = Technical.indicators(snapshots)
     end
 
     test "insufficient: 49 snapshots → {:error, :insufficient_data}" do
