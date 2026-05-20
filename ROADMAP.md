@@ -75,6 +75,8 @@ Detailed prep in [`docs/track-2-technical.md`](docs/track-2-technical.md). Shipp
 - [ ] HTTP layer mocked with `Mox`
 - [ ] `SweetXml` dependency for CVM/RSS parsing
 
+Detailed prep in [`docs/track-3-news.md`](docs/track-3-news.md).
+
 ## v0.6.0 — Track 4: Signal Classifier + Pipeline Integration
 
 **Goal:** deterministic signal derived from indicators + news, with AI demoted to enrichment.
