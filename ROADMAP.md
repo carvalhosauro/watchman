@@ -92,6 +92,8 @@ Detailed prep in [`docs/track-3-news.md`](docs/track-3-news.md). Shipped commits
 - [ ] Signal formatter for AI-less mode
 - [ ] Outcome closer (Track 1) invoked before writing new analyses
 
+Detailed prep in [`docs/track-4-classifier.md`](docs/track-4-classifier.md).
+
 ---
 
 ## v0.7.0 — Track 5: Daemon paradigm shift
