@@ -59,6 +59,8 @@ Pure functions. 100% unit-testable. No DB calls, no external APIs.
 - [ ] Exhaustive ExUnit suite with spreadsheet-validated reference values
 - [ ] Not yet wired into `Pipeline` — used directly by Track 4
 
+Detailed prep in [`docs/track-2-technical.md`](docs/track-2-technical.md).
+
 ## v0.5.0 — Track 3: News Provider Layer
 
 **Goal:** stop delegating news to the AI provider's web search. Own the audit trail.
