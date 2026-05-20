@@ -168,6 +168,22 @@ defmodule Watchman.Config do
     end
   end
 
+  @spec alerts_signal_levels() :: [String.t()]
+  def alerts_signal_levels do
+    case toml_get(["alerts", "signal", "notify_levels"]) do
+      list when is_list(list) -> list
+      _ -> ["high"]
+    end
+  end
+
+  @spec alerts_signal_directions() :: [String.t()]
+  def alerts_signal_directions do
+    case toml_get(["alerts", "signal", "notify_directions"]) do
+      list when is_list(list) -> list
+      _ -> ["bullish", "bearish"]
+    end
+  end
+
   def telegram_bot_token do
     get_key(
       "TELEGRAM_BOT_TOKEN",

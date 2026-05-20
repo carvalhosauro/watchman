@@ -6,6 +6,20 @@ defmodule Watchman.Alerts.Dispatcher do
   alias Watchman.Alerts.{Discord, Factory, Telegram}
   alias Watchman.Config
 
+  @spec maybe_notify_signal(String.t(), Watchman.Analysis.Signal.t(), keyword()) :: :ok
+  def maybe_notify_signal(ticker, %Watchman.Analysis.Signal{} = signal, _opts \\ []) do
+    levels = Config.alerts_signal_levels()
+    directions = Config.alerts_signal_directions()
+
+    if Atom.to_string(signal.level) in levels and
+         Atom.to_string(signal.direction) in directions do
+      message = build_signal_message(ticker, signal)
+      Factory.providers() |> Enum.each(&send_signal_to_provider(&1, ticker, message))
+    end
+
+    :ok
+  end
+
   def maybe_notify(ticker, recommendation, justification) do
     triggers = Config.alerts_triggers()
     providers = Factory.providers()
@@ -71,4 +85,24 @@ defmodule Watchman.Alerts.Dispatcher do
   defp provider_name(Telegram), do: "Telegram"
   defp provider_name(Discord), do: "Discord"
   defp provider_name(module), do: inspect(module)
+
+  defp build_signal_message(ticker, signal) do
+    level = signal.level |> Atom.to_string() |> String.upcase()
+    direction = signal.direction |> Atom.to_string() |> String.upcase()
+    confidence = Float.round(signal.confidence * 100, 1)
+    reasons = Enum.map_join(signal.reasons, "\n", &"• #{&1}")
+    "[#{ticker}] #{level} #{direction} signal (confidence #{confidence}%). Reasons:\n#{reasons}"
+  end
+
+  defp send_signal_to_provider(provider, ticker, message) do
+    case provider.send_alert(ticker, message, "") do
+      :ok ->
+        Logger.info("Signal alert sent via #{inspect(provider)} for #{ticker}")
+
+      {:error, reason} ->
+        Logger.warning(
+          "Signal alert failed via #{inspect(provider)} for #{ticker}: #{inspect(reason)}"
+        )
+    end
+  end
 end
