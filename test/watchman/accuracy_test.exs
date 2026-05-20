@@ -59,7 +59,10 @@ defmodule Watchman.AccuracyTest do
 
     test "unknown recommendation logs warning and returns :neutral" do
       import ExUnit.CaptureLog
-      log = capture_log(fn -> assert Accuracy.classify_outcome("comprar", 1.0, 3.0) == :neutral end)
+
+      log =
+        capture_log(fn -> assert Accuracy.classify_outcome("comprar", 1.0, 3.0) == :neutral end)
+
       assert log =~ "unknown recommendation"
     end
   end
@@ -367,6 +370,41 @@ defmodule Watchman.AccuracyTest do
       # so it does not appear in the skipped count. closable closes, too_early
       # is skipped for lookahead-not-elapsed.
       assert result == %{closed: 1, skipped: 1}
+    end
+
+    test "honors :lookahead_days opt instead of Config default", %{asset: asset} do
+      # Analysis 3 days ago with a future observed snapshot. Default lookahead
+      # is 5 (too early); injecting 1 should close it.
+      {:ok, baseline} =
+        Repo.insert(
+          PriceSnapshot.changeset(%PriceSnapshot{}, %{
+            asset_id: asset.id,
+            price: 100.0,
+            fetched_at: dt_days_ago(3)
+          })
+        )
+
+      {:ok, _observed} =
+        Repo.insert(
+          PriceSnapshot.changeset(%PriceSnapshot{}, %{
+            asset_id: asset.id,
+            price: 95.0,
+            fetched_at: dt_days_ago(0)
+          })
+        )
+
+      {:ok, _analysis} =
+        Repo.insert(
+          Analysis.changeset(%Analysis{}, %{
+            asset_id: asset.id,
+            snapshot_id: baseline.id,
+            recommendation: "vender",
+            analyzed_at: dt_days_ago(3)
+          })
+        )
+
+      assert Accuracy.close_pending_outcomes().closed == 0
+      assert Accuracy.close_pending_outcomes(lookahead_days: 1).closed == 1
     end
   end
 

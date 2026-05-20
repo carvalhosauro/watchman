@@ -11,7 +11,7 @@ defmodule Watchman.Accuracy do
   they receive an audit record but are excluded from the global hit-rate
   denominator by default.
 
-  ## close_pending_outcomes/0
+  ## close_pending_outcomes/1
 
   Scans all analyses whose lookahead window has elapsed (using
   `Watchman.Calendar.add_business_days/2` for business-day math), finds the
@@ -66,16 +66,26 @@ defmodule Watchman.Accuracy do
 
   def classify_outcome("investigar", _variation_pct, _drop_threshold_pct), do: :neutral
 
+  # Safety net: Watchman.Models.Analysis.changeset/2 already constrains
+  # recommendation to ~w(manter investigar vender), so this clause only
+  # fires if data bypasses validation (e.g., direct DB insert). Logs and
+  # degrades to :neutral rather than raising.
   def classify_outcome(other, _variation_pct, _drop_threshold_pct) when is_binary(other) do
     Logger.warning("Accuracy: unknown recommendation #{inspect(other)}, classifying as :neutral")
 
     :neutral
   end
 
-  @spec close_pending_outcomes() :: %{closed: non_neg_integer(), skipped: non_neg_integer()}
-  def close_pending_outcomes do
-    lookahead_days = Config.accuracy_lookahead_days()
-    drop_threshold_pct = Config.accuracy_drop_threshold_pct()
+  @spec close_pending_outcomes(keyword()) :: %{
+          closed: non_neg_integer(),
+          skipped: non_neg_integer()
+        }
+  def close_pending_outcomes(opts \\ []) do
+    lookahead_days = Keyword.get(opts, :lookahead_days, Config.accuracy_lookahead_days())
+
+    drop_threshold_pct =
+      Keyword.get(opts, :drop_threshold_pct, Config.accuracy_drop_threshold_pct())
+
     today = Date.utc_today()
 
     candidates =
@@ -152,10 +162,10 @@ defmodule Watchman.Accuracy do
     analyzed_date = DateTime.to_date(analysis.analyzed_at)
     target_date = Calendar.add_business_days(analyzed_date, lookahead_days)
 
-    if Date.compare(target_date, today) in [:lt, :eq] do
-      do_close(analysis, target_date, lookahead_days, drop_threshold_pct)
-    else
+    if Date.after?(target_date, today) do
       :skipped
+    else
+      do_close(analysis, target_date, lookahead_days, drop_threshold_pct)
     end
   end
 
