@@ -31,4 +31,30 @@ defmodule Watchman.Analysis.TechnicalTest do
       assert Technical.sma([], 3) == {:error, :insufficient_data}
     end
   end
+
+  describe "ema/2" do
+    # LibreOffice derivation:
+    #   prices = [10.0, 12.0, 14.0, 13.0, 15.0, 16.0], period = 3
+    #   multiplier = 2 / (3+1) = 0.5
+    #   ema_0 = (10+12+14)/3 = 12.0  (SMA seed)
+    #   ema_1 = (13 - 12.0) * 0.5 + 12.0 = 12.5
+    #   ema_2 = (15 - 12.5) * 0.5 + 12.5 = 13.75
+    #   ema_3 = (16 - 13.75) * 0.5 + 13.75 = 14.875
+    test "reference: period 3 over 6 prices → 14.875" do
+      snapshots = Enum.map([10.0, 12.0, 14.0, 13.0, 15.0, 16.0], &snap/1)
+      {:ok, result} = Technical.ema(snapshots, 3)
+      assert_in_delta result, 14.875, 1.0e-4
+    end
+
+    test "period equals list length → SMA seed, no iteration" do
+      snapshots = Enum.map([2.0, 4.0, 6.0], &snap/1)
+      {:ok, result} = Technical.ema(snapshots, 3)
+      assert_in_delta result, 4.0, 1.0e-4
+    end
+
+    test "insufficient: length < period → {:error, :insufficient_data}" do
+      snapshots = Enum.map([1.0, 2.0], &snap/1)
+      assert Technical.ema(snapshots, 5) == {:error, :insufficient_data}
+    end
+  end
 end
