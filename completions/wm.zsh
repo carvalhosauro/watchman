@@ -16,6 +16,7 @@ _wm() {
     'run:Run analysis for all tracked assets'
     'show:Show analyses'
     'retro:Generate or view retrospectives'
+    'accuracy:Show hit rate of past analyses'
     'alerts:Manage alert notifications'
     'logs:View log file'
     'completions:Output shell completion script'
@@ -71,6 +72,21 @@ _wm() {
           local -a subcmds
           subcmds=('status:Show schedule status')
           _describe 'subcommand' subcmds
+          ;;
+        accuracy)
+          local -a flags
+          flags=(
+            '--ticker:Filter by asset ticker'
+            '-t:Filter by asset ticker'
+            '--provider:Filter by AI provider'
+            '-p:Filter by AI provider'
+            '--days:Custom lookahead window in business days'
+            '-d:Custom lookahead window in business days'
+            '--since:Only analyses since date (YYYY-MM-DD)'
+            '-s:Only analyses since date (YYYY-MM-DD)'
+            '--include-neutral:Include investigar in hit-rate denominator'
+          )
+          _describe 'flag' flags
           ;;
         logs)
           local -a flags

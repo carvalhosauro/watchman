@@ -132,8 +132,18 @@ wm show PETR4                    # show history for a ticker
 wm show -l 5                     # show last 5 analyses
 wm retro -w                      # weekly retrospective
 wm retro -m                      # monthly retrospective
-wm accuracy                      # hit rate of past analyses (v0.3.0)
+wm accuracy                       # hit rate of past analyses
+wm accuracy --ticker PETR4        # filter by ticker
+wm accuracy --provider claude     # filter by AI provider
+wm accuracy --days 10             # custom lookahead window
+wm accuracy --since 2026-01-01    # only analyses since date
+wm accuracy --include-neutral     # include investigar in denominator
 ```
+
+**Accuracy** evaluates past analyses N business days after they were made,
+comparing the recommendation against the actual price movement. Results show
+hit rate per ticker, per AI provider, and overall. See
+[`docs/track-1-accuracy.md`](docs/track-1-accuracy.md) for the full spec.
 
 The database is created automatically on first run at `~/.local/share/watchman/watchman.db`.
 
