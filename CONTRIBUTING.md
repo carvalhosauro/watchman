@@ -61,10 +61,16 @@ Please keep PRs focused. One feature or fix per PR makes review faster.
 
 - Bug fixes
 - New market data providers (e.g., alternative APIs for Brazilian assets)
-- New AI provider integrations
+- New news adapters under `Watchman.News.Provider` (regulatory sources, free RSS, etc. — see [REALIGNMENT.md](docs/REALIGNMENT.md))
+- Additional technical indicators in `Watchman.Analysis.Technical` (pure functions with reference-validated tests)
+- New classifier rules in `Watchman.Analysis.Classifier` (added as ordered rule structs, never as nested conditionals)
+- New AI provider integrations (now an *optional* narrative enrichment layer)
 - Documentation improvements
 - Translations (user-facing strings are in pt-BR; other locales are welcome)
 - Test coverage improvements
+
+If you're picking up a realignment track, start from [`docs/REALIGNMENT.md`](docs/REALIGNMENT.md)
+and the per-track prep doc (e.g., [`docs/track-1-accuracy.md`](docs/track-1-accuracy.md)).
 
 ## Questions
 

@@ -21,15 +21,22 @@ and tries to answer the only question that matters:
 
 You tell watchman which assets to follow — stocks, real estate funds, whatever you hold.
 
-Every day, it checks how they're doing, reads the surrounding news,
-and records everything: price, variation, context, and what it understood about the moment.
+Every day, it checks how they're doing, reads the surrounding news from
+official sources (CVM filings, financial press), computes its own technical
+indicators on the price history it's been collecting, and classifies the
+moment: noise, low, medium, or high — bullish, bearish, or neutral.
 
-At the end of the day, the week, or the month —
-watchman looks back.
+That classification is deterministic. Same numbers in, same answer out.
+You can read the rule that fired.
 
-It doesn't fetch anything new.
-It reads what it already stored and builds a retrospective:
-what changed, what held, what's still unanswered.
+If you've configured an AI provider, watchman hands the classification to
+it and asks for a narrative on top — *why* this looks like what it looks
+like. The AI is enrichment. It can be turned off, and watchman still works.
+
+At the end of the day, the week, or the month — watchman looks back.
+It doesn't fetch anything new. It reads what it already stored and builds
+a retrospective: what changed, what held, what's still unanswered. It also
+checks how accurate its past calls were against what the market actually did.
 
 Sometimes what felt urgent on a Tuesday was nothing.
 Sometimes what seemed like nothing was the beginning of something.
@@ -100,8 +107,9 @@ wm setup
 ```
 
 Interactive wizard that configures:
-- **AI provider** — Claude, Gemini, or DeepSeek
 - **Market provider** — Brapi or Yahoo Finance
+- **News provider** — CVM or Infomoney (v0.5.0)
+- **AI provider** — Claude, Gemini, or DeepSeek *(optional from v0.3.0 — used for narrative enrichment on top of the deterministic signal)*
 - **API keys** — stored in system keyring (Linux/macOS) or config file
 - **Pipeline settings** — concurrency and timeouts
 
@@ -124,9 +132,34 @@ wm show PETR4                    # show history for a ticker
 wm show -l 5                     # show last 5 analyses
 wm retro -w                      # weekly retrospective
 wm retro -m                      # monthly retrospective
+wm accuracy                       # hit rate of past analyses
+wm accuracy --ticker PETR4        # filter by ticker
+wm accuracy --provider claude     # filter by AI provider
+wm accuracy --days 10             # custom lookahead window
+wm accuracy --since 2026-01-01    # only analyses since date
+wm accuracy --include-neutral     # include investigar in denominator
 ```
 
+**Accuracy** evaluates past analyses N business days after they were made,
+comparing the recommendation against the actual price movement. Results show
+hit rate per ticker, per AI provider, and overall. See
+[`docs/track-1-accuracy.md`](docs/track-1-accuracy.md) for the full spec.
+
 The database is created automatically on first run at `~/.local/share/watchman/watchman.db`.
+
+> **Heads up.** Watchman is going through a strategic realignment so the
+> analytical layer lives in this codebase and the AI provider becomes
+> optional enrichment. Shipped so far: **v0.3.0** (accuracy tracking +
+> `wm accuracy`), **v0.4.0** (`Watchman.Analysis.Technical` —
+> SMA/EMA/RSI/zscore/streak/drawdown, internal to the pipeline), and
+> **v0.5.0** (`Watchman.News.Provider` — CVM, Infomoney, B3, and a
+> 5-outlet generic RSS reader covering 8 free news sources). Next:
+> **v0.6.0** (`Watchman.Analysis.Classifier` — deterministic signal
+> wiring news + indicators), then **v0.7.0** (the daemon paradigm
+> shift: `wm run` is replaced by a long-lived ingestion daemon, and
+> the CLI becomes read-only against the daemon's database). See
+> [`docs/REALIGNMENT.md`](docs/REALIGNMENT.md) and
+> [`ROADMAP.md`](ROADMAP.md) for the full plan.
 
 ---
 

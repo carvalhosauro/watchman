@@ -35,6 +35,42 @@ defmodule Watchman.AI.Claude do
   end
 
   @impl true
+  def analyze(asset, snapshot, signal, news) do
+    recommendation = Shared.recommendation_from_signal(signal)
+
+    body = %{
+      model: @model,
+      max_tokens: 600,
+      system: Shared.system_prompt_with_signal(:web_search_tool, signal),
+      tools: [%{type: "web_search_20250305"}],
+      messages: [
+        %{role: "user", content: Shared.user_prompt_with_signal(asset, snapshot, signal, news)}
+      ]
+    }
+
+    case api_request(body) do
+      {:ok, %Req.Response{status: 200, body: resp_body}} ->
+        tokens =
+          get_in(resp_body, ["usage", "input_tokens"]) +
+            get_in(resp_body, ["usage", "output_tokens"])
+
+        case Watchman.Parser.extract(%{content: resp_body["content"], tokens: tokens}) do
+          {:ok, analysis, returned_news} ->
+            {:ok, %{analysis | recommendation: recommendation}, returned_news}
+
+          error ->
+            error
+        end
+
+      {:ok, %Req.Response{status: status, body: resp_body}} ->
+        {:error, {:claude_api, status, resp_body}}
+
+      {:error, reason} ->
+        {:error, {:claude_request, reason}}
+    end
+  end
+
+  @impl true
   def generate_retro(prompt) do
     body = %{
       model: @model,

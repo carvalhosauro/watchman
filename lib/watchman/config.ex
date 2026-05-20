@@ -1,6 +1,8 @@
 defmodule Watchman.Config do
   @moduledoc "Configuration loading and access."
 
+  alias Watchman.News.RssFeed
+
   @config_path "~/.config/watchman/config.toml"
 
   def load do
@@ -88,6 +90,28 @@ defmodule Watchman.Config do
     end
   end
 
+  # News
+
+  @spec news_provider() :: String.t()
+  def news_provider do
+    case toml_get(["providers", "news"]) do
+      name when is_binary(name) -> name
+      _ -> "cvm"
+    end
+  end
+
+  @spec news_rss_feeds() :: [%{name: String.t(), url: String.t()}]
+  def news_rss_feeds do
+    case toml_get(["news", "rss", "feeds"]) do
+      list when is_list(list) -> Enum.map(list, &normalize_feed/1)
+      _ -> RssFeed.default_feeds()
+    end
+  end
+
+  defp normalize_feed(%{} = entry) do
+    %{name: entry["name"] || entry[:name], url: entry["url"] || entry[:url]}
+  end
+
   # Pipeline settings
 
   def max_concurrency do
@@ -97,6 +121,21 @@ defmodule Watchman.Config do
   def task_timeout do
     seconds = toml_get(["pipeline", "timeout_seconds"]) || 120
     seconds * 1_000
+  end
+
+  # Accuracy
+
+  @spec accuracy_lookahead_days() :: pos_integer()
+  def accuracy_lookahead_days do
+    toml_get(["accuracy", "lookahead_days"]) || 5
+  end
+
+  @spec accuracy_drop_threshold_pct() :: float()
+  def accuracy_drop_threshold_pct do
+    case toml_get(["accuracy", "drop_threshold_pct"]) do
+      n when is_number(n) -> n * 1.0
+      _ -> 3.0
+    end
   end
 
   # Storage
@@ -126,6 +165,22 @@ defmodule Watchman.Config do
     case toml_get(["alerts", "triggers"]) do
       list when is_list(list) -> list
       _ -> []
+    end
+  end
+
+  @spec alerts_signal_levels() :: [String.t()]
+  def alerts_signal_levels do
+    case toml_get(["alerts", "signal", "notify_levels"]) do
+      list when is_list(list) -> list
+      _ -> ["high"]
+    end
+  end
+
+  @spec alerts_signal_directions() :: [String.t()]
+  def alerts_signal_directions do
+    case toml_get(["alerts", "signal", "notify_directions"]) do
+      list when is_list(list) -> list
+      _ -> ["bullish", "bearish"]
     end
   end
 

@@ -1,15 +1,50 @@
 defmodule Watchman.Pipeline do
-  @moduledoc "Parallel asset analysis orchestrator."
+  @moduledoc """
+  Parallel asset analysis orchestrator. Track 4 (v0.6.0) wires the
+  deterministic classifier into the per-asset loop and demotes the AI
+  provider to optional narrative enrichment.
+
+  For each active asset, the pipeline:
+
+    1. Closes any pending accuracy outcomes (Track 1).
+    2. Fetches the latest price (Track 0 — `Market.Provider`).
+    3. Persists the new `PriceSnapshot`.
+    4. Fetches news from every configured `News.Provider` adapter (Track 3).
+    5. Loads the last #{50} price snapshots from the DB.
+    6. Computes `%Indicators{}` over `[new_snapshot | history]` (Track 2).
+    7. Classifies a deterministic `%Signal{}` (Track 4) via
+       `Watchman.Analysis.Classifier.classify/2`.
+    8. Calls the configured AI provider with `analyze/4`, passing the
+       signal + news as enrichment context. The AI's job is to narrate,
+       not to re-classify. On AI failure the pipeline falls back to
+       `Watchman.Analysis.SignalFormatter` and records 0 tokens.
+    9. Persists the analysis row with both the legacy
+       `recommendation` / `justification` fields and the four new
+       `signal_*` columns.
+   10. Persists merged news (Track 3 adapters + any AI-fetched items),
+       deduplicated by URL.
+   11. Dispatches alerts via the existing recommendation-based path AND
+       the new signal-based path (Track 4 alerts extension).
+
+  Track 5 (v0.7.0) will move this orchestration out of the CLI into a
+  GenServer scheduler. The internal shape of `analyze_asset/1` does not
+  change — only the invocation site moves.
+  """
 
   require Logger
-
-  alias Watchman.Alerts.Dispatcher
-  alias Watchman.Market.{Brapi, BrapiUsage}
-  alias Watchman.Models.{Analysis, Asset, NewsItem, PriceSnapshot}
-  alias Watchman.Repo
   import Ecto.Query
 
+  alias Watchman.AI.Shared, as: AIShared
+  alias Watchman.Alerts.Dispatcher
+  alias Watchman.Analysis.{Classifier, Indicators, SignalFormatter, Technical}
+  alias Watchman.Market.{Brapi, BrapiUsage, Yfinance}
+  alias Watchman.Models.{Analysis, Asset, NewsItem, PriceSnapshot}
+  alias Watchman.Repo
+
+  @history_window 50
+
   def run do
+    close_pending_outcomes()
     maybe_warn_brapi_usage()
     assets = Repo.all(from a in Asset, where: a.active == true)
 
@@ -40,7 +75,6 @@ defmodule Watchman.Pipeline do
   defp analyze_asset(asset) do
     today = Date.utc_today()
 
-    # Idempotent: skip if already analyzed today
     if already_analyzed_today?(asset.id, today) do
       IO.puts("  ~ #{asset.ticker} (already analyzed today)")
       {:skip, asset.ticker}
@@ -64,31 +98,22 @@ defmodule Watchman.Pipeline do
   defp do_analyze(asset) do
     with {:ok, price_data} <- fetch_price(asset),
          {:ok, snapshot} <- persist_snapshot(asset, price_data),
-         {:ok, analysis_data, news_items} <- call_ai(asset, snapshot),
-         {:ok, _analysis} <- persist_analysis(asset, snapshot, analysis_data),
-         :ok <- persist_news(asset, news_items) do
-      Logger.info(
-        "#{asset.ticker}: #{analysis_data.recommendation} (#{analysis_data.tokens_used || 0} tokens)"
-      )
-
-      Dispatcher.maybe_notify(
-        asset.ticker,
-        analysis_data.recommendation,
-        analysis_data.justification
-      )
-
-      IO.puts("  ✓ #{asset.ticker} — #{analysis_data.recommendation}")
+         news_items <- fetch_news(asset),
+         history <- load_history(asset.id, snapshot.id),
+         indicators <- compute_indicators([snapshot | history], asset),
+         signal <- Classifier.classify(indicators, news_items),
+         {:ok, analysis_data, ai_news} <- call_ai(asset, snapshot, signal, news_items),
+         {:ok, _analysis} <- persist_analysis(asset, snapshot, signal, analysis_data),
+         :ok <- persist_news(asset, merge_news(news_items, ai_news)) do
+      log_success(asset, signal, analysis_data)
+      dispatch_alerts(asset, signal, analysis_data)
       {:ok, asset.ticker, analysis_data.recommendation}
     else
       {:error, step, reason} ->
-        Logger.error("#{asset.ticker}: failed at #{step} — #{inspect(reason)}")
-        IO.puts("  ✗ #{asset.ticker} — failed at #{step}: #{inspect(reason)}")
-        {:error, asset.ticker, "#{step}: #{inspect(reason)}"}
+        report_failure(asset, step, reason)
 
       {:error, reason} ->
-        Logger.error("#{asset.ticker}: #{inspect(reason)}")
-        IO.puts("  ✗ #{asset.ticker} — #{inspect(reason)}")
-        {:error, asset.ticker, inspect(reason)}
+        report_failure(asset, :unknown, reason)
     end
   end
 
@@ -108,15 +133,108 @@ defmodule Watchman.Pipeline do
     end
   end
 
-  alias Watchman.Market.{Brapi, Yfinance}
-
   defp try_fallback(Brapi, ticker), do: Yfinance.fetch(ticker)
   defp try_fallback(Yfinance, ticker), do: Brapi.fetch(ticker)
   defp try_fallback(_, _ticker), do: {:error, "all market providers failed"}
 
-  defp call_ai(asset, snapshot) do
-    Watchman.AI.Factory.provider().analyze(asset, snapshot)
+  # ---------------------------------------------------------------------------
+  # Track 3: news fetch
+  # ---------------------------------------------------------------------------
+
+  defp fetch_news(asset) do
+    Watchman.News.Factory.providers()
+    |> Enum.flat_map(&fetch_from_provider(&1, asset))
+    |> Enum.uniq_by(& &1.url)
   end
+
+  defp fetch_from_provider(provider, asset) do
+    case provider.fetch(asset.ticker, []) do
+      {:ok, items} when is_list(items) ->
+        items
+
+      {:error, reason} ->
+        Logger.warning(
+          "News provider #{inspect(provider)} failed for #{asset.ticker}: #{inspect(reason)}"
+        )
+
+        []
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Track 2: history load + indicators
+  # ---------------------------------------------------------------------------
+
+  defp load_history(asset_id, exclude_snapshot_id) do
+    from(ps in PriceSnapshot,
+      where: ps.asset_id == ^asset_id,
+      where: ps.id != ^exclude_snapshot_id,
+      order_by: [desc: ps.fetched_at],
+      limit: ^@history_window
+    )
+    |> Repo.all()
+    |> Enum.reverse()
+  end
+
+  defp compute_indicators(snapshots, asset) do
+    case Technical.indicators(snapshots) do
+      {:ok, indicators} ->
+        indicators
+
+      {:error, :insufficient_data} ->
+        Logger.info(
+          "#{asset.ticker}: insufficient history (#{length(snapshots)} snapshots); using neutral fallback"
+        )
+
+        fallback_indicators()
+    end
+  end
+
+  defp fallback_indicators do
+    %Indicators{
+      sma7: 0.0,
+      sma21: 0.0,
+      sma50: 0.0,
+      ema21: 0.0,
+      rsi14: 50.0,
+      zscore21: 0.0,
+      streak: %{direction: :up, days: 0},
+      drawdown_from_peak: 0.0
+    }
+  end
+
+  # ---------------------------------------------------------------------------
+  # AI enrichment (optional — falls back to SignalFormatter on failure)
+  # ---------------------------------------------------------------------------
+
+  defp call_ai(asset, snapshot, signal, news_items) do
+    case Watchman.AI.Factory.provider().analyze(asset, snapshot, signal, news_items) do
+      {:ok, attrs, items} ->
+        {:ok, attrs, items}
+
+      {:error, reason} ->
+        Logger.warning(
+          "#{asset.ticker}: AI failed (#{inspect(reason)}); using SignalFormatter fallback"
+        )
+
+        {:ok, ai_less_attrs(signal), []}
+    end
+  end
+
+  defp ai_less_attrs(signal) do
+    %{
+      cause: nil,
+      is_specific_problem: false,
+      macro_context: nil,
+      recommendation: AIShared.recommendation_from_signal(signal),
+      justification: SignalFormatter.format(signal),
+      tokens_used: 0
+    }
+  end
+
+  # ---------------------------------------------------------------------------
+  # Persistence
+  # ---------------------------------------------------------------------------
 
   defp persist_snapshot(asset, price_data) do
     attrs = %{
@@ -134,8 +252,7 @@ defmodule Watchman.Pipeline do
     end
   end
 
-  defp persist_analysis(asset, snapshot, analysis_data) do
-    # Compute cost based on active provider's blended rate
+  defp persist_analysis(asset, snapshot, signal, analysis_data) do
     cost = (analysis_data.tokens_used || 0) * cost_per_mtok() / 1_000_000
 
     attrs = %{
@@ -148,7 +265,11 @@ defmodule Watchman.Pipeline do
       justification: analysis_data.justification,
       tokens_used: analysis_data.tokens_used,
       cost_usd: cost,
-      analyzed_at: DateTime.utc_now()
+      analyzed_at: DateTime.utc_now(),
+      signal_level: Atom.to_string(signal.level),
+      signal_direction: Atom.to_string(signal.direction),
+      signal_reasons: Jason.encode!(signal.reasons),
+      signal_confidence: signal.confidence
     }
 
     case Repo.insert(Analysis.changeset(%Analysis{}, attrs)) do
@@ -166,19 +287,20 @@ defmodule Watchman.Pipeline do
     end
   end
 
+  defp merge_news(track3_items, ai_items) do
+    (track3_items ++ Enum.map(ai_items, &normalize_news_item/1))
+    |> Enum.uniq_by(& &1.url)
+  end
+
+  defp normalize_news_item(%NewsItem{} = item), do: item
+  defp normalize_news_item(%{} = map), do: struct(NewsItem, map)
+
   defp persist_news(asset, news_items) do
     now = DateTime.utc_now()
+    valid_sources = NewsItem.sources()
 
     Enum.each(news_items, fn item ->
-      attrs = %{
-        asset_id: asset.id,
-        title: item.title,
-        summary: item.summary,
-        source: item.source,
-        url: item.url,
-        published_at: item.published_at,
-        fetched_at: now
-      }
+      attrs = build_news_attrs(item, asset.id, valid_sources, now)
 
       case Repo.insert(NewsItem.changeset(%NewsItem{}, attrs)) do
         {:ok, _} ->
@@ -192,6 +314,39 @@ defmodule Watchman.Pipeline do
     end)
 
     :ok
+  end
+
+  defp build_news_attrs(item, asset_id, valid_sources, now) do
+    normalized_source =
+      if Map.get(item, :source) in valid_sources, do: item.source, else: "unknown"
+
+    %{
+      asset_id: asset_id,
+      title: Map.get(item, :title),
+      summary: Map.get(item, :summary),
+      source: normalized_source,
+      category: Map.get(item, :category) || "other",
+      url: Map.get(item, :url),
+      published_at: Map.get(item, :published_at),
+      fetched_at: now
+    }
+  end
+
+  # ---------------------------------------------------------------------------
+  # Outcome closer (Track 1) + brapi usage warning
+  # ---------------------------------------------------------------------------
+
+  defp close_pending_outcomes do
+    case Watchman.Accuracy.close_pending_outcomes() do
+      %{closed: 0} = stats ->
+        Logger.debug("Accuracy: no outcomes to close (#{inspect(stats)})")
+        stats
+
+      %{closed: n} = stats ->
+        Logger.info("Accuracy: closed #{n} outcomes")
+        IO.puts("Closed #{n} past outcome(s)")
+        stats
+    end
   end
 
   defp maybe_warn_brapi_usage do
@@ -209,6 +364,34 @@ defmodule Watchman.Pipeline do
           :ok
       end
     end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Logging + alerts
+  # ---------------------------------------------------------------------------
+
+  defp log_success(asset, signal, analysis_data) do
+    Logger.info(
+      "#{asset.ticker}: #{signal.level} #{signal.direction} (#{analysis_data.tokens_used || 0} tokens)"
+    )
+
+    IO.puts("  ✓ #{asset.ticker} — #{signal.level} #{signal.direction}")
+  end
+
+  defp dispatch_alerts(asset, signal, analysis_data) do
+    Dispatcher.maybe_notify(
+      asset.ticker,
+      analysis_data.recommendation,
+      analysis_data.justification
+    )
+
+    Dispatcher.maybe_notify_signal(asset.ticker, signal)
+  end
+
+  defp report_failure(asset, step, reason) do
+    Logger.error("#{asset.ticker}: failed at #{step} — #{inspect(reason)}")
+    IO.puts("  ✗ #{asset.ticker} — failed at #{step}: #{inspect(reason)}")
+    {:error, asset.ticker, "#{step}: #{inspect(reason)}"}
   end
 
   defp print_summary(results) do

@@ -1,6 +1,7 @@
 defmodule Watchman.CLI do
   @moduledoc "CLI entry point and command dispatch."
 
+  alias Watchman.Accuracy
   alias Watchman.Alerts.Dispatcher
   alias Watchman.Models.{Analysis, Asset, PriceSnapshot}
   alias Watchman.Repo
@@ -23,6 +24,7 @@ defmodule Watchman.CLI do
   defp dispatch(["unschedule"]), do: Watchman.Scheduler.teardown()
   defp dispatch(["alerts", "test"]), do: cmd_alerts_test()
   defp dispatch(["alerts", "status"]), do: cmd_alerts_status()
+  defp dispatch(["accuracy" | opts]), do: cmd_accuracy(opts)
   defp dispatch(["logs" | opts]), do: cmd_logs(opts)
   defp dispatch(["update"]), do: cmd_update()
   defp dispatch(["completions", shell]), do: cmd_completions(shell)
@@ -213,6 +215,107 @@ defmodule Watchman.CLI do
 
   defp cmd_alerts_status do
     Dispatcher.status()
+  end
+
+  defp cmd_accuracy(opts) do
+    {parsed, _args, _} =
+      OptionParser.parse(opts,
+        switches: [
+          ticker: :string,
+          provider: :string,
+          days: :integer,
+          since: :string,
+          include_neutral: :boolean
+        ],
+        aliases: [t: :ticker, p: :provider, d: :days, s: :since]
+      )
+
+    case build_accuracy_opts(parsed) do
+      {:ok, report_opts} ->
+        report_opts
+        |> Accuracy.report()
+        |> print_accuracy_report(report_opts)
+
+      {:error, msg} ->
+        IO.puts(msg)
+    end
+  end
+
+  defp build_accuracy_opts(parsed) do
+    with {:ok, since} <- parse_since(parsed[:since]) do
+      opts =
+        [
+          ticker: parsed[:ticker],
+          provider: parsed[:provider],
+          lookahead_days: parsed[:days],
+          since: since,
+          include_neutral: parsed[:include_neutral]
+        ]
+        |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+
+      {:ok, opts}
+    end
+  end
+
+  defp parse_since(nil), do: {:ok, nil}
+
+  defp parse_since(str) do
+    case Date.from_iso8601(str) do
+      {:ok, date} -> {:ok, date}
+      {:error, _} -> {:error, "Invalid date: #{str}. Use format YYYY-MM-DD."}
+    end
+  end
+
+  defp print_accuracy_report(%{overall: overall} = report, _opts) do
+    if overall.hits + overall.misses + overall.neutral == 0 do
+      print_accuracy_empty()
+    else
+      do_print_accuracy(report)
+    end
+  end
+
+  defp print_accuracy_empty do
+    n = Watchman.Config.accuracy_lookahead_days()
+
+    IO.puts(
+      "No outcomes recorded yet. Outcomes are evaluated #{n} business days after each analysis."
+    )
+  end
+
+  defp do_print_accuracy(%{
+         window: window,
+         by_ticker: by_ticker,
+         by_provider: by_provider,
+         overall: overall
+       }) do
+    IO.puts(accuracy_header(window))
+    IO.puts("")
+    print_accuracy_section("By ticker:", by_ticker, :ticker)
+    print_accuracy_section("By provider:", by_provider, :provider)
+    IO.puts("Overall:   #{format_accuracy_stats(overall)}")
+  end
+
+  defp accuracy_header(window) do
+    days = window.lookahead_days || Watchman.Config.accuracy_lookahead_days()
+    base = "Accuracy — lookahead #{days} business days"
+    if window.from, do: "#{base}, since #{window.from}", else: base
+  end
+
+  defp print_accuracy_section(_label, [], _key), do: :ok
+
+  defp print_accuracy_section(label, rows, key) do
+    IO.puts(label)
+
+    Enum.each(rows, fn row ->
+      IO.puts("  #{Map.get(row, key)}   #{format_accuracy_stats(row)}")
+    end)
+
+    IO.puts("")
+  end
+
+  defp format_accuracy_stats(%{hits: h, misses: m, neutral: n, hit_rate: r}) do
+    rate = Float.round(r * 100, 1)
+    "#{h} hits   #{m} misses   #{n} neutral   hit rate #{rate}%"
   end
 
   defp cmd_logs(opts) do
@@ -420,6 +523,12 @@ defmodule Watchman.CLI do
       wm retro -m                 Generate monthly retrospective
       wm retro list               List all retrospectives
       wm retro show ID            Show a specific retrospective
+      wm accuracy                  Show hit rate of past analyses
+      wm accuracy --ticker T       Filter by ticker
+      wm accuracy --provider P     Filter by AI provider
+      wm accuracy --days N         Filter by lookahead window
+      wm accuracy --since DATE     Filter analyses since DATE (YYYY-MM-DD)
+      wm accuracy --include-neutral
       wm update                   Pull latest version from GitHub
     """)
   end

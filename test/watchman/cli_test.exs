@@ -3,7 +3,7 @@ defmodule Watchman.CLITest do
 
   import ExUnit.CaptureIO
 
-  alias Watchman.Models.{Analysis, Asset, PriceSnapshot}
+  alias Watchman.Models.{Analysis, AnalysisOutcome, Asset, PriceSnapshot}
   alias Watchman.Repo
 
   setup do
@@ -306,6 +306,57 @@ defmodule Watchman.CLITest do
     end
   end
 
+  describe "accuracy command" do
+    test "shows empty-state message when no outcomes recorded" do
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["accuracy"])
+        end)
+
+      assert output =~ "No outcomes recorded yet"
+      assert output =~ "business days"
+    end
+
+    test "shows Overall: with hit rate when outcomes exist" do
+      {:ok, asset} = Repo.insert(Asset.changeset(%Asset{}, %{ticker: "ACCT3"}))
+      insert_accuracy_outcome(asset.id, "hit", days_ago: 2)
+
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["accuracy"])
+        end)
+
+      assert output =~ "Overall:"
+      assert output =~ "hit rate"
+      assert output =~ "ACCT3"
+    end
+
+    test "--ticker filters output to that asset" do
+      {:ok, asset_a} = Repo.insert(Asset.changeset(%Asset{}, %{ticker: "ACCA3"}))
+      {:ok, asset_b} = Repo.insert(Asset.changeset(%Asset{}, %{ticker: "ACCB3"}))
+      insert_accuracy_outcome(asset_a.id, "hit", days_ago: 2)
+      insert_accuracy_outcome(asset_b.id, "miss", days_ago: 3)
+
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["accuracy", "--ticker", "ACCA3"])
+        end)
+
+      assert output =~ "ACCA3"
+      refute output =~ "ACCB3"
+    end
+
+    test "--since with invalid date prints friendly error and does not crash" do
+      output =
+        capture_io(fn ->
+          Watchman.CLI.main(["accuracy", "--since", "not-a-date"])
+        end)
+
+      assert output =~ "Invalid date"
+      assert output =~ "YYYY-MM-DD"
+    end
+  end
+
   describe "hidden completion helpers" do
     test "_complete_tickers outputs tracked tickers" do
       Repo.insert!(Asset.changeset(%Asset{}, %{ticker: "COMP3", type: "acao"}))
@@ -334,5 +385,57 @@ defmodule Watchman.CLITest do
 
       assert output =~ ~r/\d+/
     end
+  end
+
+  # Inserts the minimal chain of records to produce one AnalysisOutcome row.
+  # `days_ago:` controls the evaluated_at offset; analyzed_at is staggered
+  # further back to avoid the analyses_asset_date unique index conflict.
+  defp insert_accuracy_outcome(asset_id, outcome, opts) do
+    eval_days = Keyword.fetch!(opts, :days_ago)
+    analyzed_days = eval_days + 20
+
+    {:ok, baseline} =
+      Repo.insert(%PriceSnapshot{
+        asset_id: asset_id,
+        price: 100.0,
+        fetched_at: ts_days_ago(analyzed_days + 5)
+      })
+
+    {:ok, analysis} =
+      Repo.insert(
+        Analysis.changeset(%Analysis{}, %{
+          asset_id: asset_id,
+          snapshot_id: baseline.id,
+          recommendation: "manter",
+          analyzed_at: ts_days_ago(analyzed_days)
+        })
+      )
+
+    {:ok, observed} =
+      Repo.insert(%PriceSnapshot{
+        asset_id: asset_id,
+        price: 105.0,
+        fetched_at: ts_days_ago(eval_days + 1)
+      })
+
+    Repo.insert!(
+      AnalysisOutcome.changeset(%AnalysisOutcome{}, %{
+        analysis_id: analysis.id,
+        observed_snapshot_id: observed.id,
+        lookahead_days: 5,
+        baseline_price: 100.0,
+        observed_price: 105.0,
+        variation_pct: 5.0,
+        outcome: outcome,
+        drop_threshold_pct: 3.0,
+        evaluated_at: ts_days_ago(eval_days)
+      })
+    )
+  end
+
+  defp ts_days_ago(days) do
+    DateTime.utc_now()
+    |> DateTime.add(-days * 86_400, :second)
+    |> DateTime.truncate(:second)
   end
 end

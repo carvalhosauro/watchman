@@ -37,6 +37,39 @@ defmodule Watchman.AI.Deepseek do
   end
 
   @impl true
+  def analyze(asset, snapshot, signal, news) do
+    recommendation = Shared.recommendation_from_signal(signal)
+
+    body = %{
+      model: @model,
+      messages: [
+        %{role: "system", content: Shared.system_prompt_with_signal(:no_search, signal)},
+        %{
+          role: "user",
+          content: Shared.user_prompt_with_signal(asset, snapshot, signal, news, search: false)
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 600
+    }
+
+    case api_request(body) do
+      {:ok, %Req.Response{status: 200, body: resp}} ->
+        tokens = get_in(resp, ["usage", "total_tokens"]) || 0
+        text = get_in(resp, ["choices", Access.at(0), "message", "content"]) || ""
+        analysis = Shared.parse_analysis(text, tokens)
+        # DeepSeek has no web search — news is always empty
+        {:ok, %{analysis | recommendation: recommendation}, []}
+
+      {:ok, %Req.Response{status: status, body: resp_body}} ->
+        {:error, {:deepseek_api, status, resp_body}}
+
+      {:error, reason} ->
+        {:error, {:deepseek_request, reason}}
+    end
+  end
+
+  @impl true
   def generate_retro(prompt) do
     body = %{
       model: @model,

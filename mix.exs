@@ -4,7 +4,7 @@ defmodule Watchman.MixProject do
   def project do
     [
       app: :watchman,
-      version: "0.2.1",
+      version: "0.6.0",
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -63,6 +63,8 @@ defmodule Watchman.MixProject do
       {:req, "~> 0.5"},
       {:jason, "~> 1.4"},
       {:toml, "~> 0.7"},
+      # XML / RSS parsing for News.CVM, News.RssFeed (Track 3)
+      {:sweet_xml, "~> 0.7"},
       {:plug, "~> 1.0", only: :test},
       {:mox, "~> 1.0", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

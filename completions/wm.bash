@@ -25,7 +25,7 @@ _wm_completions() {
   prev="${COMP_WORDS[COMP_CWORD-1]}"
 
   # Top-level commands
-  local commands="setup schedule unschedule assets list remove run show retro alerts logs completions update"
+  local commands="setup schedule unschedule assets list remove run show retro accuracy alerts logs completions update"
 
   case "${COMP_CWORD}" in
     1)
@@ -51,6 +51,9 @@ _wm_completions() {
           ;;
         schedule)
           COMPREPLY=($(compgen -W "status" -- "${cur}"))
+          ;;
+        accuracy)
+          COMPREPLY=($(compgen -W "--ticker -t --provider -p --days -d --since -s --include-neutral" -- "${cur}"))
           ;;
         logs)
           COMPREPLY=($(compgen -W "--follow -f --lines -n" -- "${cur}"))
