@@ -128,4 +128,35 @@ defmodule Watchman.Analysis.TechnicalTest do
       assert Technical.zscore(snapshots, 5) == {:error, :insufficient_data}
     end
   end
+
+  describe "streak/1" do
+    test "up streak: [1,2,3,4] → days 3" do
+      snapshots = Enum.map([1.0, 2.0, 3.0, 4.0], &snap/1)
+      assert Technical.streak(snapshots) == {:ok, %{direction: :up, days: 3}}
+    end
+
+    test "down streak: [4,3,2,1] → days 3" do
+      snapshots = Enum.map([4.0, 3.0, 2.0, 1.0], &snap/1)
+      assert Technical.streak(snapshots) == {:ok, %{direction: :down, days: 3}}
+    end
+
+    test "broken by flat last pair: [1,2,3,3] → days 0" do
+      snapshots = Enum.map([1.0, 2.0, 3.0, 3.0], &snap/1)
+      assert Technical.streak(snapshots) == {:ok, %{direction: :up, days: 0}}
+    end
+
+    test "mixed: [1,2,3,2,3,4] → up days 2" do
+      # reversed [4,3,2,3,2,1]: 4>3→:up count=1, 3>2→count=2, 2<3→stop
+      snapshots = Enum.map([1.0, 2.0, 3.0, 2.0, 3.0, 4.0], &snap/1)
+      assert Technical.streak(snapshots) == {:ok, %{direction: :up, days: 2}}
+    end
+
+    test "empty list → {:ok, %{direction: :up, days: 0}}" do
+      assert Technical.streak([]) == {:ok, %{direction: :up, days: 0}}
+    end
+
+    test "single element → {:ok, %{direction: :up, days: 0}}" do
+      assert Technical.streak([snap(5.0)]) == {:ok, %{direction: :up, days: 0}}
+    end
+  end
 end

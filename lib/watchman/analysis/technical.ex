@@ -22,6 +22,7 @@ defmodule Watchman.Analysis.Technical do
     * `ema/2` — requires at least `period` snapshots (SMA-seeded).
     * `rsi/2` — requires at least `period + 1` snapshots.
     * `zscore/2` — requires at least `period` snapshots and `period >= 2`.
+    * `streak/1` — no minimum; empty/single → `%{direction: :up, days: 0}`, never errors.
 
   ## EMA seeding
 
@@ -33,6 +34,12 @@ defmodule Watchman.Analysis.Technical do
   RSI uses Wilder smoothing (multiplier `1/period`). When `avg_loss == 0`,
   RSI returns `100.0` by convention to avoid division by zero. This applies
   to both the all-gain and the flat (zero-delta) cases.
+
+  ## Streak conventions
+
+  `streak/1` never returns `{:error, _}`. Equal consecutive prices break the
+  streak. An empty or single-element list returns
+  `{:ok, %{direction: :up, days: 0}}` by convention.
 
   ## Z-score variance
 
@@ -111,6 +118,25 @@ defmodule Watchman.Analysis.Technical do
     end
   end
 
+  @spec streak([PriceSnapshot.t()]) ::
+          {:ok, %{direction: :up | :down, days: non_neg_integer()}}
+  def streak(snapshots) when is_list(snapshots) do
+    case Enum.reverse(Enum.map(snapshots, & &1.price)) do
+      [] ->
+        {:ok, %{direction: :up, days: 0}}
+
+      [_] ->
+        {:ok, %{direction: :up, days: 0}}
+
+      [latest, prev | rest] ->
+        cond do
+          latest > prev -> do_streak(:up, prev, rest, 1)
+          latest < prev -> do_streak(:down, prev, rest, 1)
+          true -> {:ok, %{direction: :up, days: 0}}
+        end
+    end
+  end
+
   @spec zscore([PriceSnapshot.t()], pos_integer()) ::
           {:ok, float()} | {:error, :insufficient_data}
   def zscore(snapshots, period \\ 21)
@@ -129,6 +155,26 @@ defmodule Watchman.Analysis.Technical do
       else
         {:ok, (List.last(prices) - mean) / stddev}
       end
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Private helpers
+  # ---------------------------------------------------------------------------
+
+  defp do_streak(direction, _prev, [], count), do: {:ok, %{direction: direction, days: count}}
+
+  defp do_streak(direction, prev, [next | rest], count) do
+    continues =
+      case direction do
+        :up -> prev > next
+        :down -> prev < next
+      end
+
+    if continues do
+      do_streak(direction, next, rest, count + 1)
+    else
+      {:ok, %{direction: direction, days: count}}
     end
   end
 end
