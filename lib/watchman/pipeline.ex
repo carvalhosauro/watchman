@@ -169,13 +169,21 @@ defmodule Watchman.Pipeline do
 
   defp persist_news(asset, news_items) do
     now = DateTime.utc_now()
+    valid_sources = NewsItem.sources()
 
     Enum.each(news_items, fn item ->
+      # AI-sourced items pre-Track-3 carry freeform source strings; map any
+      # value outside the whitelist to "unknown" so the strict changeset
+      # validation passes without losing audit trail (the original string is
+      # already gone — Track 3+ adapters set source explicitly).
+      normalized_source = if item.source in valid_sources, do: item.source, else: "unknown"
+
       attrs = %{
         asset_id: asset.id,
         title: item.title,
         summary: item.summary,
-        source: item.source,
+        source: normalized_source,
+        category: Map.get(item, :category, "other"),
         url: item.url,
         published_at: item.published_at,
         fetched_at: now
