@@ -147,11 +147,14 @@ hit rate per ticker, per AI provider, and overall. See
 
 The database is created automatically on first run at `~/.local/share/watchman/watchman.db`.
 
-> **Heads up.** Watchman is going through a strategic realignment from v0.3.0
-> onwards: the analytical layer (technical indicators, signal classifier,
-> news fetching) is moving into this codebase, and the AI provider becomes
-> optional. See [`docs/REALIGNMENT.md`](docs/REALIGNMENT.md) and
-> [`ROADMAP.md`](ROADMAP.md) for the plan.
+> **Heads up.** Watchman is going through a strategic realignment so the
+> analytical layer lives in this codebase and the AI provider becomes
+> optional enrichment. Shipped so far: **v0.3.0** (accuracy tracking + `wm
+> accuracy`) and **v0.4.0** (`Watchman.Analysis.Technical` —
+> SMA/EMA/RSI/zscore/streak/drawdown, internal to the pipeline). Next:
+> **v0.5.0** (`Watchman.News.Provider` — CVM + Infomoney adapters). See
+> [`docs/REALIGNMENT.md`](docs/REALIGNMENT.md) and
+> [`ROADMAP.md`](ROADMAP.md) for the full plan.
 
 ---
 
