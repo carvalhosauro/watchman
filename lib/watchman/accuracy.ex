@@ -23,6 +23,27 @@ defmodule Watchman.Accuracy do
   run or a concurrent worker), the insert fails with a unique-constraint
   error and that analysis is counted as `:skipped` rather than raising.
   Analyses with a nil `snapshot_id` are excluded from processing entirely.
+
+  ## report/1
+
+  Reads stored `AnalysisOutcome` rows and aggregates them into a summary
+  map containing hit/miss/neutral counts and hit-rate, broken down by ticker
+  and overall.
+
+  Supports the following keyword filters:
+
+    * `:ticker` — restrict to a single asset ticker (case-insensitive).
+    * `:since` — only outcomes evaluated on or after this `Date`.
+    * `:lookahead_days` — only outcomes recorded with this lookahead window.
+    * `:include_neutral` — when `true`, neutral outcomes count in the
+      hit-rate denominator (default `false`).
+    * `:provider` — **not yet tracked in v0.3.0**. Passing this key logs a
+      warning and the filter is silently ignored. `by_provider` is always
+      returned as `[]`.
+
+  `hit_rate` is computed as `hits / (hits + misses)` (or
+  `hits / (hits + misses + neutral)` when `:include_neutral` is `true`).
+  Returns `0.0` when the denominator is zero.
   """
 
   require Logger
@@ -31,7 +52,7 @@ defmodule Watchman.Accuracy do
 
   alias Watchman.Calendar
   alias Watchman.Config
-  alias Watchman.Models.{Analysis, AnalysisOutcome, PriceSnapshot}
+  alias Watchman.Models.{Analysis, AnalysisOutcome, Asset, PriceSnapshot}
   alias Watchman.Repo
 
   @spec classify_outcome(String.t(), float(), float()) :: :hit | :miss | :neutral
@@ -64,6 +85,55 @@ defmodule Watchman.Accuracy do
         :skipped -> Map.update!(acc, :skipped, &(&1 + 1))
       end
     end)
+  end
+
+  @type report_opt ::
+          {:ticker, String.t() | nil}
+          | {:provider, String.t() | nil}
+          | {:lookahead_days, integer() | nil}
+          | {:since, Date.t() | nil}
+          | {:include_neutral, boolean()}
+
+  @spec report([report_opt()]) :: %{
+          by_ticker: [
+            %{
+              ticker: String.t(),
+              hits: non_neg_integer(),
+              misses: non_neg_integer(),
+              neutral: non_neg_integer(),
+              hit_rate: float()
+            }
+          ],
+          by_provider: [],
+          overall: %{
+            hits: non_neg_integer(),
+            misses: non_neg_integer(),
+            neutral: non_neg_integer(),
+            hit_rate: float()
+          },
+          window: %{from: Date.t() | nil, to: Date.t() | nil, lookahead_days: integer() | nil}
+        }
+  def report(opts \\ []) do
+    ticker = opts[:ticker]
+    provider = opts[:provider]
+    since_date = opts[:since]
+    lookahead = opts[:lookahead_days]
+    include_neutral = Keyword.get(opts, :include_neutral, false)
+
+    if provider do
+      Logger.warning(
+        "provider filter requested but provider column not yet tracked in analyses; ignored"
+      )
+    end
+
+    rows = fetch_outcome_rows(ticker, since_date, lookahead)
+
+    %{
+      by_ticker: aggregate_by_ticker(rows, include_neutral),
+      by_provider: [],
+      overall: compute_stats(rows, include_neutral),
+      window: build_window(rows, lookahead)
+    }
   end
 
   # ---------------------------------------------------------------------------
@@ -130,5 +200,69 @@ defmodule Watchman.Accuracy do
         limit: 1
       )
     )
+  end
+
+  defp fetch_outcome_rows(ticker, since_date, lookahead) do
+    from(o in AnalysisOutcome,
+      as: :outcome,
+      join: a in Analysis,
+      as: :analysis,
+      on: a.id == o.analysis_id,
+      join: asset in Asset,
+      as: :asset,
+      on: asset.id == a.asset_id,
+      select: %{ticker: asset.ticker, outcome: o.outcome, evaluated_at: o.evaluated_at}
+    )
+    |> filter_ticker(ticker)
+    |> filter_since(since_date)
+    |> filter_lookahead(lookahead)
+    |> Repo.all()
+  end
+
+  defp filter_ticker(query, nil), do: query
+
+  defp filter_ticker(query, ticker),
+    do: where(query, [asset: a], a.ticker == ^String.upcase(ticker))
+
+  defp filter_since(query, nil), do: query
+
+  defp filter_since(query, since) do
+    start_dt = DateTime.new!(since, ~T[00:00:00], "Etc/UTC")
+    where(query, [outcome: o], o.evaluated_at >= ^start_dt)
+  end
+
+  defp filter_lookahead(query, nil), do: query
+
+  defp filter_lookahead(query, n),
+    do: where(query, [outcome: o], o.lookahead_days == ^n)
+
+  defp aggregate_by_ticker(rows, include_neutral) do
+    rows
+    |> Enum.group_by(& &1.ticker)
+    |> Enum.map(fn {ticker, t_rows} ->
+      t_rows |> compute_stats(include_neutral) |> Map.put(:ticker, ticker)
+    end)
+    |> Enum.sort_by(fn r -> {-r.hit_rate, r.ticker} end)
+  end
+
+  defp build_window(rows, lookahead) do
+    dates = Enum.map(rows, &DateTime.to_date(&1.evaluated_at))
+
+    {from, to} =
+      case dates do
+        [] -> {nil, nil}
+        _ -> {Enum.min_by(dates, &Date.to_erl/1), Enum.max_by(dates, &Date.to_erl/1)}
+      end
+
+    %{from: from, to: to, lookahead_days: lookahead}
+  end
+
+  defp compute_stats(rows, include_neutral) do
+    hits = Enum.count(rows, &(&1.outcome == "hit"))
+    misses = Enum.count(rows, &(&1.outcome == "miss"))
+    neutral = Enum.count(rows, &(&1.outcome == "neutral"))
+    denom = if include_neutral, do: hits + misses + neutral, else: hits + misses
+    hit_rate = if denom == 0, do: 0.0, else: hits / denom
+    %{hits: hits, misses: misses, neutral: neutral, hit_rate: hit_rate}
   end
 end

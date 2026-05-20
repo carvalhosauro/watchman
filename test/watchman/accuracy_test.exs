@@ -324,8 +324,203 @@ defmodule Watchman.AccuracyTest do
   end
 
   # ---------------------------------------------------------------------------
+  # report/1 — sandbox-backed tests
+  # ---------------------------------------------------------------------------
+
+  describe "report/1" do
+    setup do
+      :ok = Ecto.Adapters.SQL.Sandbox.checkout(Repo)
+
+      {:ok, a1} = Repo.insert(Asset.changeset(%Asset{}, %{ticker: "RPTA3"}))
+      {:ok, a2} = Repo.insert(Asset.changeset(%Asset{}, %{ticker: "RPTB3"}))
+
+      %{a1: a1, a2: a2}
+    end
+
+    test "empty database returns all-zero counts and empty lists" do
+      result = Accuracy.report()
+
+      assert result == %{
+               by_ticker: [],
+               by_provider: [],
+               overall: %{hits: 0, misses: 0, neutral: 0, hit_rate: 0.0},
+               window: %{from: nil, to: nil, lookahead_days: nil}
+             }
+    end
+
+    test "single hit outcome has overall hit_rate 1.0", %{a1: a1} do
+      insert_report_outcome(a1.id, "hit", analyzed_at_days_ago: 30, evaluated_at_days_ago: 2)
+
+      result = Accuracy.report()
+
+      assert result.overall.hits == 1
+      assert result.overall.misses == 0
+      assert result.overall.neutral == 0
+      assert result.overall.hit_rate == 1.0
+    end
+
+    test "mixed batch: counts are correct and neutral excluded from hit_rate by default", %{
+      a1: a1,
+      a2: a2
+    } do
+      # a1 (RPTA3): 2 hits, 1 miss
+      insert_report_outcome(a1.id, "hit", analyzed_at_days_ago: 30, evaluated_at_days_ago: 2)
+      insert_report_outcome(a1.id, "hit", analyzed_at_days_ago: 31, evaluated_at_days_ago: 3)
+      insert_report_outcome(a1.id, "miss", analyzed_at_days_ago: 32, evaluated_at_days_ago: 4)
+
+      # a2 (RPTB3): 1 hit, 1 miss, 1 neutral
+      insert_report_outcome(a2.id, "hit", analyzed_at_days_ago: 30, evaluated_at_days_ago: 2)
+      insert_report_outcome(a2.id, "miss", analyzed_at_days_ago: 31, evaluated_at_days_ago: 3)
+      insert_report_outcome(a2.id, "neutral", analyzed_at_days_ago: 32, evaluated_at_days_ago: 4)
+
+      result = Accuracy.report()
+
+      assert result.overall.hits == 3
+      assert result.overall.misses == 2
+      assert result.overall.neutral == 1
+      # 3 / (3 + 2) = 0.6, neutral excluded
+      assert_in_delta result.overall.hit_rate, 0.6, 0.001
+
+      # by_ticker sorted by hit_rate desc
+      tickers = Enum.map(result.by_ticker, & &1.ticker)
+      assert tickers == ["RPTA3", "RPTB3"]
+
+      rpta = Enum.find(result.by_ticker, &(&1.ticker == "RPTA3"))
+      assert rpta.hits == 2
+      assert rpta.misses == 1
+      assert_in_delta rpta.hit_rate, 2 / 3, 0.001
+
+      window = result.window
+      assert window.from != nil
+      assert window.to != nil
+      assert Date.compare(window.from, window.to) in [:lt, :eq]
+    end
+
+    test ":include_neutral true counts neutral in denominator", %{a1: a1, a2: a2} do
+      insert_report_outcome(a1.id, "hit", analyzed_at_days_ago: 30, evaluated_at_days_ago: 2)
+      insert_report_outcome(a1.id, "hit", analyzed_at_days_ago: 31, evaluated_at_days_ago: 3)
+      insert_report_outcome(a1.id, "miss", analyzed_at_days_ago: 32, evaluated_at_days_ago: 4)
+      insert_report_outcome(a2.id, "hit", analyzed_at_days_ago: 30, evaluated_at_days_ago: 2)
+      insert_report_outcome(a2.id, "miss", analyzed_at_days_ago: 31, evaluated_at_days_ago: 3)
+      insert_report_outcome(a2.id, "neutral", analyzed_at_days_ago: 32, evaluated_at_days_ago: 4)
+
+      result = Accuracy.report(include_neutral: true)
+
+      # 3 / (3 + 2 + 1) = 0.5
+      assert_in_delta result.overall.hit_rate, 0.5, 0.001
+    end
+
+    test ":ticker filter restricts to one asset (case-insensitive)", %{a1: a1, a2: a2} do
+      insert_report_outcome(a1.id, "hit", analyzed_at_days_ago: 30, evaluated_at_days_ago: 2)
+      insert_report_outcome(a1.id, "miss", analyzed_at_days_ago: 31, evaluated_at_days_ago: 3)
+      insert_report_outcome(a2.id, "hit", analyzed_at_days_ago: 30, evaluated_at_days_ago: 2)
+
+      # lowercase input — report/1 must upcase before filtering
+      result = Accuracy.report(ticker: "rpta3")
+
+      assert result.overall.hits == 1
+      assert result.overall.misses == 1
+      assert length(result.by_ticker) == 1
+      assert hd(result.by_ticker).ticker == "RPTA3"
+    end
+
+    test ":since filter restricts by evaluated_at date", %{a1: a1} do
+      # evaluated 10 days ago — older than the :since boundary
+      insert_report_outcome(a1.id, "hit", analyzed_at_days_ago: 30, evaluated_at_days_ago: 10)
+      # evaluated 1 day ago — within range
+      insert_report_outcome(a1.id, "miss", analyzed_at_days_ago: 31, evaluated_at_days_ago: 1)
+
+      result = Accuracy.report(since: Date.utc_today() |> Date.add(-5))
+
+      assert result.overall.hits == 0
+      assert result.overall.misses == 1
+    end
+
+    test ":lookahead_days filter restricts to matching window", %{a1: a1} do
+      insert_report_outcome(a1.id, "hit", analyzed_at_days_ago: 30, evaluated_at_days_ago: 2)
+      # different lookahead_days — must not appear with filter: 5
+      insert_report_outcome(a1.id, "miss",
+        analyzed_at_days_ago: 31,
+        evaluated_at_days_ago: 3,
+        lookahead_days: 10
+      )
+
+      result = Accuracy.report(lookahead_days: 5)
+
+      assert result.overall.hits == 1
+      assert result.overall.misses == 0
+    end
+
+    test ":provider filter logs a warning and always returns by_provider: []", %{a1: a1} do
+      import ExUnit.CaptureLog
+
+      insert_report_outcome(a1.id, "hit", analyzed_at_days_ago: 30, evaluated_at_days_ago: 2)
+
+      result = Accuracy.report(provider: "clearsal")
+      log = capture_log(fn -> Accuracy.report(provider: "clearsal") end)
+
+      assert result.by_provider == []
+      assert log =~ "provider filter requested"
+    end
+  end
+
+  # ---------------------------------------------------------------------------
   # Private helpers
   # ---------------------------------------------------------------------------
+
+  # Inserts the chain of records needed to produce one AnalysisOutcome row:
+  # a baseline PriceSnapshot, an Analysis referencing it, an observed
+  # PriceSnapshot, and the AnalysisOutcome itself. `analyzed_at_days_ago`
+  # controls which calendar day the analysis falls on (must be unique per
+  # asset_id due to the analyses_asset_date index); `evaluated_at_days_ago`
+  # controls the outcome timestamp.
+  defp insert_report_outcome(asset_id, outcome, opts) do
+    analyzed_days = Keyword.fetch!(opts, :analyzed_at_days_ago)
+    eval_days = Keyword.fetch!(opts, :evaluated_at_days_ago)
+    lookahead = Keyword.get(opts, :lookahead_days, 5)
+
+    {:ok, baseline} =
+      Repo.insert(
+        PriceSnapshot.changeset(%PriceSnapshot{}, %{
+          asset_id: asset_id,
+          price: 100.0,
+          fetched_at: dt_days_ago(analyzed_days + 5)
+        })
+      )
+
+    {:ok, analysis} =
+      Repo.insert(
+        Analysis.changeset(%Analysis{}, %{
+          asset_id: asset_id,
+          snapshot_id: baseline.id,
+          recommendation: "manter",
+          analyzed_at: dt_days_ago(analyzed_days)
+        })
+      )
+
+    {:ok, observed} =
+      Repo.insert(
+        PriceSnapshot.changeset(%PriceSnapshot{}, %{
+          asset_id: asset_id,
+          price: 105.0,
+          fetched_at: dt_days_ago(eval_days + 1)
+        })
+      )
+
+    Repo.insert!(
+      AnalysisOutcome.changeset(%AnalysisOutcome{}, %{
+        analysis_id: analysis.id,
+        observed_snapshot_id: observed.id,
+        lookahead_days: lookahead,
+        baseline_price: 100.0,
+        observed_price: 105.0,
+        variation_pct: 5.0,
+        outcome: outcome,
+        drop_threshold_pct: 3.0,
+        evaluated_at: dt_days_ago(eval_days)
+      })
+    )
+  end
 
   defp dt_days_ago(days) do
     DateTime.utc_now()
