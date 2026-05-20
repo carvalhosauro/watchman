@@ -4,7 +4,7 @@ defmodule Watchman.PipelineTest do
   import Ecto.Query
   import ExUnit.CaptureIO
 
-  alias Watchman.Models.{Analysis, Asset, PriceSnapshot}
+  alias Watchman.Models.{Analysis, AnalysisOutcome, Asset, PriceSnapshot}
   alias Watchman.Repo
 
   setup :verify_on_exit!
@@ -233,6 +233,33 @@ defmodule Watchman.PipelineTest do
         )
 
       assert count == 1
+    end
+  end
+
+  describe "run/0 closer integration" do
+    test "close_pending_outcomes runs and records an AnalysisOutcome" do
+      # Inactive asset — pipeline skips main analysis loop, no mock expectations needed
+      asset = insert_asset(%{ticker: "CLOSE4", active: false})
+
+      thirty_days_ago = DateTime.utc_now() |> DateTime.add(-30 * 24 * 3600, :second)
+
+      baseline_snapshot =
+        insert_snapshot(asset, %{fetched_at: thirty_days_ago, price: 30.00})
+
+      analysis =
+        insert_analysis(asset, baseline_snapshot, %{
+          analyzed_at: thirty_days_ago,
+          recommendation: "manter"
+        })
+
+      # Observed snapshot dated after the 5-business-day target (~23 days ago)
+      observed_at = DateTime.utc_now() |> DateTime.add(-20 * 24 * 3600, :second)
+      insert_snapshot(asset, %{fetched_at: observed_at, price: 31.00})
+
+      capture_io(fn -> Watchman.Pipeline.run() end)
+
+      analysis_id = analysis.id
+      assert Repo.exists?(from ao in AnalysisOutcome, where: ao.analysis_id == ^analysis_id)
     end
   end
 

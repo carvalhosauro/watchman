@@ -10,6 +10,7 @@ defmodule Watchman.Pipeline do
   import Ecto.Query
 
   def run do
+    close_pending_outcomes()
     maybe_warn_brapi_usage()
     assets = Repo.all(from a in Asset, where: a.active == true)
 
@@ -192,6 +193,19 @@ defmodule Watchman.Pipeline do
     end)
 
     :ok
+  end
+
+  defp close_pending_outcomes do
+    case Watchman.Accuracy.close_pending_outcomes() do
+      %{closed: 0} = stats ->
+        Logger.debug("Accuracy: no outcomes to close (#{inspect(stats)})")
+        stats
+
+      %{closed: n} = stats ->
+        Logger.info("Accuracy: closed #{n} outcomes")
+        IO.puts("Closed #{n} past outcome(s)")
+        stats
+    end
   end
 
   defp maybe_warn_brapi_usage do
