@@ -119,6 +119,8 @@ defmodule Watchman.Analysis.Technical do
     if length(snapshots) < period do
       {:error, :insufficient_data}
     else
+      # SMA seeding requires the head of the full price list (Enum.take(prices, period)),
+      # so the full list is mapped up front rather than via the prices/2 helper.
       prices = Enum.map(snapshots, & &1.price)
       multiplier = 2.0 / (period + 1)
       seed_prices = Enum.take(prices, period)
@@ -189,6 +191,10 @@ defmodule Watchman.Analysis.Technical do
   @spec indicators([PriceSnapshot.t()]) ::
           {:ok, Indicators.t()} | {:error, :insufficient_data}
   def indicators(snapshots) when is_list(snapshots) do
+    # Sub-calls (sma/ema/rsi/zscore/drawdown) each re-check length(snapshots)
+    # internally for standalone-call safety. Those redundant traversals are
+    # intentional — public functions must validate their own input regardless
+    # of how they are invoked.
     if length(snapshots) < 50 do
       {:error, :insufficient_data}
     else
