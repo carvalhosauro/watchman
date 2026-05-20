@@ -9,7 +9,7 @@ defmodule Watchman.Repo.Migrations.AddAnalysisOutcomes do
       add :observed_price, :float, null: false
 
       add :observed_snapshot_id,
-          references(:price_snapshots, on_delete: :nilify_all),
+          references(:price_snapshots, on_delete: :restrict),
           null: false
 
       add :variation_pct, :float, null: false
