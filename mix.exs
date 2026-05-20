@@ -63,6 +63,8 @@ defmodule Watchman.MixProject do
       {:req, "~> 0.5"},
       {:jason, "~> 1.4"},
       {:toml, "~> 0.7"},
+      # XML / RSS parsing for News.CVM, News.RssFeed (Track 3)
+      {:sweet_xml, "~> 0.7"},
       {:plug, "~> 1.0", only: :test},
       {:mox, "~> 1.0", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
