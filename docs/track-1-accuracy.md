@@ -3,6 +3,20 @@
 Concrete prep for the first realignment track. See
 [`REALIGNMENT.md`](REALIGNMENT.md) for the broader rationale.
 
+## Status — shipped v0.3.0
+
+Track 1 shipped as of v0.3.0. Commits `5ec3b40` (table + model) through
+`f16837f` (version bump) on branch `dev`, plus a hardening pass `b4c55ed`
+applying the post-ship review fixes (LEFT JOIN filter on the closer,
+zero-baseline guard, snapshot ordering, error-path distinction, and
+`classify_outcome/3` fallback clause).
+
+203 tests pass with full suite coverage above the 60% threshold;
+`Watchman.Accuracy` and `Watchman.Calendar` at 100%.
+
+The task list at the bottom of this document is preserved as the
+historical record of how the track was decomposed.
+
 ## Goal
 
 Close the feedback loop on past analyses using data already in the database.

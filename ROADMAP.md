@@ -32,21 +32,21 @@
 
 ---
 
-## v0.3.0 — Track 1: Accuracy Tracking (active)
+## v0.3.0 — Track 1: Accuracy Tracking (done)
 
 **Goal:** close the feedback loop on past analyses using data already in the DB.
 Zero new APIs. Zero new dependencies. Immediate credibility win.
 
-- [ ] `analysis_outcomes` table + Ecto migration (hit/miss/pending, lookahead window, evaluated price)
-- [ ] Outcome closer step inside `wm run`: scan analyses past their lookahead and persist outcomes
-- [ ] `Watchman.Accuracy` query layer (hit rate per ticker, per provider, overall)
-- [ ] `wm accuracy` CLI with `--ticker`, `--provider`, `--days`, `--since` flags
-- [ ] Tabular report formatter
-- [ ] Tests against in-memory SQLite sandbox
+- [x] `analysis_outcomes` table + Ecto migration (hit/miss/pending, lookahead window, evaluated price)
+- [x] Outcome closer step inside `wm run`: scan analyses past their lookahead and persist outcomes
+- [x] `Watchman.Accuracy` query layer (hit rate per ticker, per provider, overall)
+- [x] `wm accuracy` CLI with `--ticker`, `--provider`, `--days`, `--since` flags
+- [x] Tabular report formatter
+- [x] Tests against in-memory SQLite sandbox
 
-Detailed prep in [`docs/track-1-accuracy.md`](docs/track-1-accuracy.md).
+Detailed prep in [`docs/track-1-accuracy.md`](docs/track-1-accuracy.md). Shipped commits: `5ec3b40` → `b4c55ed` (final hardening). See [`CHANGELOG.md`](CHANGELOG.md).
 
-## v0.4.0 — Track 2: Technical Analysis
+## v0.4.0 — Track 2: Technical Analysis (next)
 
 **Goal:** own deterministic indicators computed from stored `price_snapshots`.
 Pure functions. 100% unit-testable. No DB calls, no external APIs.

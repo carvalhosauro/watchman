@@ -72,7 +72,7 @@ the price observed `N` business days later (default 5) and tagged hit/miss.
 
 ```
 wm run
- ├─ Close pending analysis outcomes past their lookahead window   (Track 1)
+ ├─ Close pending analysis outcomes past their lookahead window   (shipped)
  ├─ Brapi free-tier usage warning
  ├─ Load active assets from DB
  ├─ Task.async_stream (parallel, max_concurrency from config)
@@ -108,14 +108,14 @@ enriches the deterministic classification rather than re-deriving it.
 | `CLI` | Command dispatch, argument parsing | shipped |
 | `Config` | TOML + env + keyring config reader | shipped |
 | `Credentials` | System keyring interface (Linux/macOS) | shipped |
-| `Pipeline` | Parallel analysis orchestrator | rewrite in Track 4 |
+| `Pipeline` | Parallel analysis orchestrator | rewrite in Track 4 (now also calls `Accuracy.close_pending_outcomes/0` at the top of `run/0`) |
 | `Retro` | Retrospective generation from stored data | shipped |
 | `Parser` | AI response → structured analysis + news | shipped |
 | `Scheduler` | systemd/cron setup and teardown | shipped |
 | `Setup` | Interactive configuration wizard | shipped |
 | `Market.Provider` | Behaviour for price fetching | shipped |
 | `Alerts.Provider` | Behaviour for alert delivery | shipped |
-| `Accuracy` | Outcome closer + hit-rate queries | **Track 1 — v0.3.0** |
+| `Accuracy` | Outcome closer + hit-rate queries | shipped (v0.3.0) |
 | `Analysis.Technical` | Pure indicator functions (SMA, EMA, RSI, …) | Track 2 — v0.4.0 |
 | `Analysis.Indicators` | Indicator result struct | Track 2 — v0.4.0 |
 | `News.Provider` | Behaviour for news fetching | Track 3 — v0.5.0 |
