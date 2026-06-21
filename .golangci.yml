@@ -10,6 +10,7 @@ linters:
       - path: _test\.go
         linters:
           - errcheck
+          - misspell # test fixtures carry Portuguese CVM feed text (dividendos, comunicado)
 formatters:
   enable:
     - gofmt
