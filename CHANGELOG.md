@@ -5,6 +5,17 @@
 
 - Check Fprintln error for lint
 
+- Bound price/news fetches with a 10s client timeout
+
+
+### Documentation
+
+- Add git-cliff changelog config
+
+- Mark plan Tasks 1-11 complete (ralph)
+
+- Rewrite README and CONTRIBUTING for Go
+
 
 ### Features
 
@@ -15,6 +26,21 @@
 - Add/remove + wm wallet commands + flow test
 
 - Fetch close history over HTTP + flow test
+
+- Z-score of latest move
+
+- Deterministic ignore/LOOK rule
+
+- Parse CVM feed + per-ticker freshness
+
+- Fetch CVM feed over HTTP + flow test
+
+- Price-only run glance via wm run
+
+
+### Refactor
+
+- Move entrypoint to cmd/wm, build binary to bin/wm
 
 
 ### Tooling
@@ -28,6 +54,18 @@
 - Add coverage threshold gate
 
 - Add lefthook pre-commit + conventional-commit hook
+
+- GoReleaser cross-platform release + CI gates
+
+- Remove Elixir leftovers (installers, stale docs, completions, lefthook)
+
+- Consolidate git hooks on .githooks, coverage output to test/
+
+- Update .gitignore to streamline ignored files and add specific test database patterns
+
+- Exclude misspell on test fixtures (Portuguese CVM text)
+
+- Raise coverage floor to 80
 
 
 ### Documentation
