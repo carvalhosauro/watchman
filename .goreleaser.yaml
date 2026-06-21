@@ -1,0 +1,27 @@
+version: 2
+project_name: watchman
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - id: wm
+    binary: wm
+    main: .
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X github.com/carvalhosauro/watchman/cmd.version={{ .Version }}
+archives:
+  - id: wm
+    formats: [tar.gz]
+    name_template: "wm_{{ .Os }}_{{ .Arch }}"
+checksum:
+  name_template: checksums.txt
+changelog:
+  disable: true
+release:
+  github:
+    owner: carvalhosauro
+    name: watchman
