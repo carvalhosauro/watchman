@@ -3,11 +3,10 @@ package prices
 import (
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 )
 
-const fixture = `{"chart":{"error":null,"result":[{"indicators":{"quote":[{"close":[10.0,10.5,null,11.0]}]}}]}}`
+const fixture = `{"chart":{"error":null,"result":[{"timestamp":[1718000000,1718086400,1718172800],"indicators":{"quote":[{"close":[10.0,null,11.0],"volume":[100,200,300]}]}}]}}`
 
 func TestEnvURL(t *testing.T) {
 	t.Setenv("WM_TEST_PRICES_URL", "http://mock")
@@ -24,8 +23,9 @@ func TestParse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []float64{10.0, 10.5, 11.0}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("got %v want %v", got, want)
+	// the null-close bar is dropped; two bars remain, oldest→newest
+	if len(got) != 2 || got[0].Close != 10.0 || got[1].Close != 11.0 || got[1].Volume != 300 {
+		t.Fatalf("got %+v", got)
 	}
 }
 
@@ -36,6 +36,8 @@ func TestParseError(t *testing.T) {
 }
 
 func TestHistoryFlow(t *testing.T) {
+	orig := BaseURL
+	t.Cleanup(func() { BaseURL = orig })
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("User-Agent") == "" {
 			t.Error("missing User-Agent")
@@ -43,13 +45,10 @@ func TestHistoryFlow(t *testing.T) {
 		_, _ = w.Write([]byte(fixture))
 	}))
 	defer srv.Close()
-	old := BaseURL
 	BaseURL = srv.URL
-	defer func() { BaseURL = old }()
-
 	got, err := History("PETR4")
-	if err != nil || len(got) != 3 || got[2] != 11.0 {
-		t.Fatalf("got %v err %v", got, err)
+	if err != nil || len(got) != 2 || got[1].Close != 11.0 {
+		t.Fatalf("got %+v err %v", got, err)
 	}
 }
 
