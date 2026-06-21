@@ -63,7 +63,8 @@ wm completion bash       # also: zsh, fish, powershell
 - No history log, weighting, or per-ticker tuning (yet).
 - News is matched by ticker substring on the CVM feed; aliases and a live RSS feed URL are roadmap items. Until then `wm run` degrades gracefully to a price-only glance.
 
-These are deliberate cuts for the value-core MVP. History, schedule, and self-update are the next phase.
+These are deliberate cuts for the value-core MVP. Real news, history, schedule, and
+self-update are the next phases — see [ROADMAP.md](ROADMAP.md).
 
 ## Develop
 
