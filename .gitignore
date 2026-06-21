@@ -1,6 +1,8 @@
 /bin/wm
 /dist/
-/test/coverage.out
+/completions/
+/manpages/
+/test/coverage*.out
 /test/*.db*
 *.test
 docs/product

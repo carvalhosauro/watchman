@@ -16,6 +16,10 @@ var rootCmd = &cobra.Command{
 	Version: version,
 }
 
+// Root returns the root command with all subcommands attached (registered via
+// each command file's init). Used by the docs/completions generator.
+func Root() *cobra.Command { return rootCmd }
+
 // Run executes the CLI and returns the process exit code. It is the
 // testscript-friendly entry point (no os.Exit) so tests can drive wm in-process.
 func Run() int {
