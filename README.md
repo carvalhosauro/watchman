@@ -1,221 +1,37 @@
 # watchman
 
-[![CI](https://github.com/carvalhosauro/watchman/actions/workflows/ci.yml/badge.svg)](https://github.com/carvalhosauro/watchman/actions/workflows/ci.yml)
+> Is this market move noise, or worth a look? A local CLI that watches your B3 assets.
 
-Markets make noise constantly.
-Bad news, sharp drops, analyst tweets, unexplained movement.
-Most of it is noise. But not always.
+**Status:** v2 rewrite in Go (was Elixir) — work in progress. See
+[`docs/superpowers/plans/2026-06-20-watchman-v2-noise-glance.md`](docs/superpowers/plans/2026-06-20-watchman-v2-noise-glance.md).
 
-**watchman** keeps an eye on your assets, reads what's happening around them,
-and tries to answer the only question that matters:
-
-> *is this something I need to understand right now, or can I ignore it?*
-
-<p align="center">
-  <img src="docs/watchmen-preview.gif" alt="watchman preview" width="700" />
-</p>
-
----
-
-## What it does
-
-You tell watchman which assets to follow — stocks, real estate funds, whatever you hold.
-
-Every day, it checks how they're doing, reads the surrounding news from
-official sources (CVM filings, financial press), computes its own technical
-indicators on the price history it's been collecting, and classifies the
-moment: noise, low, medium, or high — bullish, bearish, or neutral.
-
-That classification is deterministic. Same numbers in, same answer out.
-You can read the rule that fired.
-
-If you've configured an AI provider, watchman hands the classification to
-it and asks for a narrative on top — *why* this looks like what it looks
-like. The AI is enrichment. It can be turned off, and watchman still works.
-
-At the end of the day, the week, or the month — watchman looks back.
-It doesn't fetch anything new. It reads what it already stored and builds
-a retrospective: what changed, what held, what's still unanswered. It also
-checks how accurate its past calls were against what the market actually did.
-
-Sometimes what felt urgent on a Tuesday was nothing.
-Sometimes what seemed like nothing was the beginning of something.
-
----
-
-## What it doesn't do
-
-It's not investment advice.
-It has no access to your brokerage account.
-It doesn't execute orders.
-
-It's a starting point for you to think —
-not a replacement for thinking.
-
----
-
-## Who it's for
-
-Anyone tracking a handful of assets on their own
-who's tired of opening ten tabs, reading five sites,
-and still not knowing whether that drop is worth worrying about.
-
----
-
-## Install
-
-One line:
+## Build
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/carvalhosauro/watchman/main/install.sh | bash
+make build        # -> bin/wm  (static binary, no runtime deps)
 ```
 
-This will:
-- Check for Elixir/Erlang (guides you to install if missing)
-- Clone the repo to `~/.local/share/watchman`
-- Install dependencies and compile
-- Create `wm` command in `~/.local/bin`
-- Optionally run the setup wizard
+Requires Go 1.22+.
 
-### Requirements
-
-- [Elixir](https://elixir-lang.org/install.html) 1.17+
-- Erlang/OTP 27+
-
-### Manual install
+## Usage (current)
 
 ```bash
-git clone https://github.com/carvalhosauro/watchman.git ~/.local/share/watchman
-cd ~/.local/share/watchman
-mix deps.get && mix compile
-ln -s ~/.local/share/watchman/bin/wm ~/.local/bin/wm
-wm setup
+wm wallet add PETR4      # track an asset
+wm wallet add MXRF11
+wm wallet list           # show tracked tickers
+wm wallet remove PETR4
+wm completion bash       # shell completion (also: zsh, fish, powershell)
 ```
 
-### Uninstall
+Wallet lives at `~/.config/watchman/wallet` (override with `$WATCHMAN_WALLET`).
+`wm run` — the noise/look glance — arrives with Phase A (Task 14).
+
+## Develop
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/carvalhosauro/watchman/main/uninstall.sh | bash
+./bin/setup-hooks    # install git hooks (.githooks/)
+make ci              # gofmt + golangci-lint + coverage + build
+make test            # go test -race ./...
 ```
-
----
-
-## Setup
-
-```bash
-wm setup
-```
-
-Interactive wizard that configures:
-- **Market provider** — Brapi or Yahoo Finance
-- **News provider** — CVM or Infomoney (v0.5.0)
-- **AI provider** — Claude, Gemini, or DeepSeek *(optional from v0.3.0 — used for narrative enrichment on top of the deterministic signal)*
-- **API keys** — stored in system keyring (Linux/macOS) or config file
-- **Pipeline settings** — concurrency and timeouts
-
-API keys are stored securely:
-1. System keyring (recommended) — `secret-tool` on Linux, Keychain on macOS
-2. Config file with `chmod 600` — fallback when keyring unavailable
-3. Environment variables — always override other sources
-
----
-
-## CLI
-
-```bash
-wm assets MXRF11 PETR4 ITUB4   # register assets (auto-detects FII vs stock)
-wm list                          # list tracked assets
-wm remove MXRF11                # stop tracking
-wm run                           # run analysis for all tracked assets
-wm show                          # show today's analyses
-wm show PETR4                    # show history for a ticker
-wm show -l 5                     # show last 5 analyses
-wm retro -w                      # weekly retrospective
-wm retro -m                      # monthly retrospective
-wm accuracy                       # hit rate of past analyses
-wm accuracy --ticker PETR4        # filter by ticker
-wm accuracy --provider claude     # filter by AI provider
-wm accuracy --days 10             # custom lookahead window
-wm accuracy --since 2026-01-01    # only analyses since date
-wm accuracy --include-neutral     # include investigar in denominator
-```
-
-**Accuracy** evaluates past analyses N business days after they were made,
-comparing the recommendation against the actual price movement. Results show
-hit rate per ticker, per AI provider, and overall. See
-[`docs/track-1-accuracy.md`](docs/track-1-accuracy.md) for the full spec.
-
-The database is created automatically on first run at `~/.local/share/watchman/watchman.db`.
-
-> **Heads up.** Watchman is going through a strategic realignment so the
-> analytical layer lives in this codebase and the AI provider becomes
-> optional enrichment. Shipped so far: **v0.3.0** (accuracy tracking +
-> `wm accuracy`), **v0.4.0** (`Watchman.Analysis.Technical` —
-> SMA/EMA/RSI/zscore/streak/drawdown, internal to the pipeline), and
-> **v0.5.0** (`Watchman.News.Provider` — CVM, Infomoney, B3, and a
-> 5-outlet generic RSS reader covering 8 free news sources). Next:
-> **v0.6.0** (`Watchman.Analysis.Classifier` — deterministic signal
-> wiring news + indicators), then **v0.7.0** (the daemon paradigm
-> shift: `wm run` is replaced by a long-lived ingestion daemon, and
-> the CLI becomes read-only against the daemon's database). See
-> [`docs/REALIGNMENT.md`](docs/REALIGNMENT.md) and
-> [`ROADMAP.md`](ROADMAP.md) for the full plan.
-
----
-
-## Shell Completions
-
-Tab-completion for commands, tickers, and retrospective IDs.
-
-```bash
-# Bash — add to ~/.bashrc
-eval "$(wm completions bash)"
-
-# Zsh — add to ~/.zshrc
-eval "$(wm completions zsh)"
-```
-
----
-
-## Scheduling
-
-Run analyses automatically every day:
-
-```bash
-wm schedule            # interactive setup (systemd or cron)
-wm schedule status     # check if schedule is active
-wm unschedule          # remove scheduled runs
-```
-
----
-
-## Logs
-
-```bash
-wm logs                # last 50 lines
-wm logs -f             # follow in real-time
-wm logs -n 100         # last N lines
-```
-
-Logs are stored at `~/.local/share/watchman/logs/watchman.log`.
-
----
-
-## Updates
-
-```bash
-wm update              # pull latest version from GitHub and fetch deps
-```
-
-Pulls the latest changes from the main branch, updates dependencies, and recompiles.
-
----
-
-## Philosophy
-
-More data is not more clarity.
-watchman doesn't try to give you everything —
-it tries to give you enough
-to make decisions with less anxiety and more context.
 
 [License GPL-2.0-only](LICENSE)
