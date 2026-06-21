@@ -19,7 +19,7 @@ func init() {
 				return err
 			}
 			for _, t := range ts {
-				fmt.Fprintln(cmd.OutOrStdout(), t)
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), t)
 			}
 			return nil
 		},
