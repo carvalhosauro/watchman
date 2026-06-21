@@ -1,3 +1,4 @@
+// Package cmd wires the watchman CLI commands.
 package cmd
 
 import (

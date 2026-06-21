@@ -4,6 +4,7 @@ package wallet
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -35,4 +36,40 @@ func List(path string) ([]string, error) {
 		out = append(out, strings.ToUpper(line))
 	}
 	return out, nil
+}
+
+// Add appends ticker (uppercased) to the wallet at path, ignoring duplicates.
+func Add(path, ticker string) error {
+	ticker = strings.ToUpper(strings.TrimSpace(ticker))
+	cur, err := List(path)
+	if err != nil {
+		return err
+	}
+	if slices.Contains(cur, ticker) {
+		return nil
+	}
+	return write(path, append(cur, ticker))
+}
+
+// Remove deletes ticker from the wallet at path if present.
+func Remove(path, ticker string) error {
+	ticker = strings.ToUpper(strings.TrimSpace(ticker))
+	cur, err := List(path)
+	if err != nil {
+		return err
+	}
+	out := []string{}
+	for _, t := range cur {
+		if t != ticker {
+			out = append(out, t)
+		}
+	}
+	return write(path, out)
+}
+
+func write(path string, tickers []string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(strings.Join(tickers, "\n")+"\n"), 0o644)
 }

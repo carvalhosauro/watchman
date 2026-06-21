@@ -33,3 +33,20 @@ func TestPathEnvOverride(t *testing.T) {
 		t.Fatalf("env override ignored: %s", Path())
 	}
 }
+
+func TestAddRemove(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "sub", "wallet")
+	must := func(err error) {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(Add(p, "petr4"))
+	must(Add(p, "PETR4")) // dedupe
+	must(Add(p, "mxrf11"))
+	must(Remove(p, "petr4"))
+	got, _ := List(p)
+	if want := []string{"MXRF11"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v want %v", got, want)
+	}
+}
