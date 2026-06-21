@@ -1,0 +1,32 @@
+# CLI surface: version, help, unknown command, completions.
+
+# --version prints a version line
+wm --version
+stdout 'wm version'
+
+# --help lists the top-level commands
+wm --help
+stdout 'wallet'
+stdout 'run'
+stdout 'completion'
+
+# bare invocation shows the command list, exits 0
+wm
+stdout 'Available Commands'
+
+# unknown command fails
+! wm bogus-cmd
+stderr 'unknown command'
+
+# shell completions: each shell emits its own script
+wm completion bash
+stdout 'bash completion'
+
+wm completion zsh
+stdout 'compdef'
+
+wm completion fish
+stdout 'fish completion'
+
+wm completion powershell
+stdout 'Register-ArgumentCompleter'
