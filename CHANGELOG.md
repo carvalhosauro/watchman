@@ -16,6 +16,8 @@
 
 - Rewrite README and CONTRIBUTING for Go
 
+- README + CHANGELOG for Phase A glance
+
 
 ### Features
 
@@ -37,10 +39,17 @@
 
 - Price-only run glance via wm run
 
+- Env URL override seam (WATCHMAN_PRICES_URL/NEWS_URL)
+
 
 ### Refactor
 
 - Move entrypoint to cmd/wm, build binary to bin/wm
+
+
+### Tests
+
+- Black-box wm suite + mock-driven run + live smoke
 
 
 ### Tooling
