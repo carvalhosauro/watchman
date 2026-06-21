@@ -14,3 +14,15 @@
 /cover/
 .omc/
 *.dump
+/market-map-*.md
+/benchmark-*.md
+/problem-*.md
+/prioritization-*.md
+/mvp-*.md
+/interview-*.md
+
+# Go
+/wm
+/dist/
+/coverage.out
+*.test
