@@ -1,71 +1,47 @@
 # Contributing to watchman
 
-Thanks for your interest in contributing. Here's everything you need to get started.
-
-## Setting up the dev environment
+## Dev environment
 
 ```bash
 git clone https://github.com/carvalhosauro/watchman.git
 cd watchman
-mix setup
+.githooks/setup-hooks  # installs the pre-commit + commit-msg hooks
+make build             # -> bin/wm
+make help              # list all targets
 ```
 
-`mix setup` installs dependencies, compiles the project, and sets up the pre-commit hook.
+Requires Go 1.24+.
 
-## Running tests
+## Gates (run before pushing)
 
 ```bash
-mix test
+make ci      # gofmt, golangci-lint, coverage (>=80%), build
+make test    # go test -race ./...  (unit + cobra + testscript black-box)
+make smoke   # optional: live network smoke against real Yahoo/CVM
 ```
 
-## Code style
-
-The project uses `mix format`. A pre-commit hook enforces formatting automatically — if it fails, run:
-
-```bash
-mix format
-```
-
-and re-stage the files before committing.
+The pre-commit hook auto-formats staged Go files and runs lint + tests; the
+commit-msg hook enforces Conventional Commits.
 
 ## Commit conventions
 
-This project follows [Conventional Commits](https://www.conventionalcommits.org/):
+[Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
-feat: add support for new market provider
-fix: correct price parsing for FII tickers
-refactor: extract analysis logic into separate module
-docs: update README with wm update command
-chore: bump dependencies
+feat: add price-anomaly classifier
+fix: correct FII ticker parsing
+ci: tighten coverage threshold
 ```
 
-Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `style`, `perf`.
+Types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`.
 
-## Language conventions
+## Layout
 
-- **Project code**: English (module names, function names, variable names, comments)
-- **User-facing strings**: Portuguese (pt-BR) — messages printed to the terminal, error descriptions, wizard prompts
+- `cmd/wm/` — binary entry point (`package main`)
+- `cmd/` — cobra commands
+- `internal/` — packages (`wallet`, `prices`, …). Pure logic is table-tested;
+  network and CLI flows are tested via `net/http/httptest` (no live calls).
 
-## PR process
+## PRs
 
-1. Fork the repository
-2. Create a branch from `dev`: `git checkout -b feat/your-feature dev`
-3. Make your changes
-4. Run `mix test` and `mix format --check-formatted`
-5. Open a PR against the `dev` branch
-
-Please keep PRs focused. One feature or fix per PR makes review faster.
-
-## What we welcome
-
-- Bug fixes
-- New market data providers (e.g., alternative APIs for Brazilian assets)
-- New AI provider integrations
-- Documentation improvements
-- Translations (user-facing strings are in pt-BR; other locales are welcome)
-- Test coverage improvements
-
-## Questions
-
-Open an issue or start a discussion on GitHub.
+Branch from `main`, keep PRs focused (one feature/fix), ensure `make ci` is green.

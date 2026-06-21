@@ -1,0 +1,58 @@
+version: 2
+project_name: watchman
+before:
+  hooks:
+    - go mod tidy
+    - go run ./cmd/gen-docs # writes completions/ + manpages/ for the archives
+builds:
+  - id: wm
+    binary: wm
+    main: ./cmd/wm
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X github.com/carvalhosauro/watchman/cmd.version={{ .Version }}
+archives:
+  - id: wm
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "wm_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - completions/*
+      - manpages/*
+checksum:
+  name_template: checksums.txt
+changelog:
+  disable: true
+release:
+  github:
+    owner: carvalhosauro
+    name: watchman
+
+# Homebrew tap — enable once the external tap repo + token exist (see plan D2/D3):
+#   1. create a public repo carvalhosauro/homebrew-tap
+#   2. add a HOMEBREW_TAP_GITHUB_TOKEN secret (a PAT with contents:write on the tap)
+#   3. expose it to the release workflow and uncomment the block below.
+# brews:
+#   - name: wm
+#     repository:
+#       owner: carvalhosauro
+#       name: homebrew-tap
+#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+#     homepage: "https://github.com/carvalhosauro/watchman"
+#     description: "Is this market move noise, or worth a look?"
+#     license: "GPL-2.0-only"
+#     install: |
+#       bin.install "wm"
+#       bash_completion.install "completions/wm.bash" => "wm"
+#       zsh_completion.install "completions/wm.zsh" => "_wm"
+#       fish_completion.install "completions/wm.fish"
+#       man1.install "manpages/wm.1"
+#     test: |
+#       system "#{bin}/wm --version"
