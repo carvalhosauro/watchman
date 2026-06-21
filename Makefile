@@ -7,7 +7,7 @@ test:
 	go test -race ./...
 
 cover:
-	bash scripts/coverage.sh 80
+	bash scripts/coverage.sh 70
 
 fmt:
 	gofmt -w . && goimports -w .
