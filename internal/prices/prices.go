@@ -4,6 +4,9 @@ package prices
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
 )
 
 // ErrNoData is returned when the response carries no usable price series.
@@ -41,4 +44,27 @@ func Parse(body []byte) ([]float64, error) {
 		}
 	}
 	return out, nil
+}
+
+// BaseURL is overridable in tests (httptest); default = Yahoo Finance chart API.
+var BaseURL = "https://query1.finance.yahoo.com/v8/finance/chart"
+
+// History fetches recent daily closes for ticker from Yahoo Finance.
+func History(ticker string) ([]float64, error) {
+	url := fmt.Sprintf("%s/%s.SA?range=2mo&interval=1d", BaseURL, ticker)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	req.Header.Set("User-Agent", "watchman/2.0")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("http %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return Parse(body)
 }
