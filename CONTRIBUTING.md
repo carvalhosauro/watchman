@@ -5,17 +5,19 @@
 ```bash
 git clone https://github.com/carvalhosauro/watchman.git
 cd watchman
-./bin/setup-hooks    # installs .githooks (pre-commit + commit-msg)
-make build           # -> bin/wm
+.githooks/setup-hooks  # installs the pre-commit + commit-msg hooks
+make build             # -> bin/wm
+make help              # list all targets
 ```
 
-Requires Go 1.22+.
+Requires Go 1.24+.
 
 ## Gates (run before pushing)
 
 ```bash
-make ci      # gofmt, golangci-lint, coverage (>=70%), build
-make test    # go test -race ./...
+make ci      # gofmt, golangci-lint, coverage (>=80%), build
+make test    # go test -race ./...  (unit + cobra + testscript black-box)
+make smoke   # optional: live network smoke against real Yahoo/CVM
 ```
 
 The pre-commit hook auto-formats staged Go files and runs lint + tests; the

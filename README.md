@@ -29,7 +29,7 @@ watchman — 2026-06-21
 
 Download a prebuilt static binary from [Releases](https://github.com/carvalhosauro/watchman/releases) (`wm_<os>_<arch>.tar.gz`, linux/darwin × amd64/arm64), extract, and put `wm` on your `PATH`.
 
-Or build from source (Go 1.22+):
+Or build from source (Go 1.24+):
 
 ```bash
 go install github.com/carvalhosauro/watchman/cmd/wm@latest
