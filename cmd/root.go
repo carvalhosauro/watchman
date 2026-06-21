@@ -16,9 +16,18 @@ var rootCmd = &cobra.Command{
 	Version: version,
 }
 
-// Execute runs the CLI.
-func Execute() {
+// Run executes the CLI and returns the process exit code. It is the
+// testscript-friendly entry point (no os.Exit) so tests can drive wm in-process.
+func Run() int {
 	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
+		return 1
+	}
+	return 0
+}
+
+// Execute runs the CLI and exits the process with the resulting code.
+func Execute() {
+	if code := Run(); code != 0 {
+		os.Exit(code)
 	}
 }
