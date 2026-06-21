@@ -1,5 +1,11 @@
 # watchman
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/carvalhosauro/watchman.svg)](https://pkg.go.dev/github.com/carvalhosauro/watchman)
+[![CI](https://github.com/carvalhosauro/watchman/actions/workflows/ci.yml/badge.svg)](https://github.com/carvalhosauro/watchman/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/carvalhosauro/watchman)](https://github.com/carvalhosauro/watchman/releases/latest)
+[![License](https://img.shields.io/github/license/carvalhosauro/watchman)](./LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/carvalhosauro/watchman)](./go.mod)
+
 > Is this market move noise, or worth a look? A single static CLI that watches the B3 assets you hold and, in one screen, tells you which to **ignore** and which to **LOOK** at.
 
 `wm` fetches recent price history and the CVM material-fact feed, then applies one deterministic rule per ticker. No database, no account, no advice — just a glance you can read in a breath.
