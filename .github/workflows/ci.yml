@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main, v2-go]
+    branches: [main]
   pull_request:
 jobs:
   check:
