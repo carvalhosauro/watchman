@@ -1,20 +1,19 @@
 #!/usr/bin/env bash
-# Pre-commit hook: auto-format staged Elixir files
-# Install: ./bin/setup-hooks
-
+# Pre-commit: gofmt staged Go files (auto-fix + restage), then lint + test.
 set -e
 
-# Get staged .ex and .exs files
-STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ex|exs)$' || true)
+STAGED_GO=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.go$' || true)
 
-if [ -z "$STAGED_FILES" ]; then
-  exit 0
+if [ -n "$STAGED_GO" ]; then
+  gofmt -w $STAGED_GO
+  echo "$STAGED_GO" | xargs git add
+  echo "✓ gofmt: $(echo "$STAGED_GO" | wc -l | tr -d ' ') file(s)"
 fi
 
-# Format staged files
-mix format $STAGED_FILES
+if command -v golangci-lint >/dev/null 2>&1; then
+  golangci-lint run
+else
+  echo "⚠ golangci-lint not found; skipping lint"
+fi
 
-# Re-stage formatted files
-echo "$STAGED_FILES" | xargs git add
-
-echo "✓ Formatted $(echo "$STAGED_FILES" | wc -l | tr -d ' ') file(s)"
+go test ./...

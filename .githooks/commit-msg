@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Enforce Conventional Commits (delegates to scripts/commit-msg.sh).
+exec bash scripts/commit-msg.sh "$1"
