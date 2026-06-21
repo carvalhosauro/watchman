@@ -1,0 +1,4 @@
+# Normalize line endings to LF on checkout across platforms. Windows CI runners
+# default to core.autocrlf=true, which would rewrite testdata/*.txtar to CRLF and
+# break testscript's byte-exact `cmp` against LF files the wm binary writes.
+* text=auto eol=lf

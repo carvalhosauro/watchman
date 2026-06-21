@@ -1,0 +1,51 @@
+# Wallet CRUD, dedupe, normalization, comments/blanks, arg validation.
+
+# missing wallet -> empty list, exit 0
+wm wallet list
+! stdout .
+
+# add lowercases -> stored uppercase, one per line
+wm wallet add petr4
+cmp wallet want_petr4
+
+# dedupe: adding the same ticker again does not duplicate
+wm wallet add PETR4
+cmp wallet want_petr4
+
+# append a second ticker, preserving order
+wm wallet add mxrf11
+cmp wallet want_two
+
+# remove drops the ticker
+wm wallet remove PETR4
+cmp wallet want_mxrf
+
+# removing a ticker that is not present is a no-op, exit 0
+wm wallet remove zzzz9
+cmp wallet want_mxrf
+
+# arg validation: add needs exactly one ticker
+! wm wallet add
+! wm wallet add A B
+
+# comments, blank lines, surrounding spaces, lowercase are all handled on read
+env WATCHMAN_WALLET=$WORK/seeded
+cp seed $WORK/seeded
+wm wallet list
+stdout '^PETR4$'
+stdout '^ITUB4$'
+stdout '^MXRF11$'
+
+-- want_petr4 --
+PETR4
+-- want_two --
+PETR4
+MXRF11
+-- want_mxrf --
+MXRF11
+-- seed --
+# my fiis
+
+petr4
+  itub4
+MXRF11
