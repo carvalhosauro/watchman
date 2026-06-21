@@ -16,4 +16,4 @@ jobs:
         with:
           version: latest
       - run: bash scripts/coverage.sh 70
-      - run: go build -o wm .
+      - run: go build -o bin/wm ./cmd/wm

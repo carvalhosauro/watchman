@@ -6,7 +6,7 @@ before:
 builds:
   - id: wm
     binary: wm
-    main: .
+    main: ./cmd/wm
     env:
       - CGO_ENABLED=0
     goos: [linux, darwin]

@@ -1,7 +1,7 @@
 .PHONY: build test cover fmt lint tidy ci snapshot changelog
 
 build:
-	go build -o wm .
+	go build -o bin/wm ./cmd/wm
 
 test:
 	go test -race ./...

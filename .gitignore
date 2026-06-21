@@ -22,7 +22,7 @@
 /interview-*.md
 
 # Go
-/wm
+/bin/wm
 /dist/
-/coverage.out
+/test/coverage.out
 *.test
