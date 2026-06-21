@@ -9,6 +9,16 @@ import (
 
 const fixture = `{"chart":{"error":null,"result":[{"indicators":{"quote":[{"close":[10.0,10.5,null,11.0]}]}}]}}`
 
+func TestEnvURL(t *testing.T) {
+	t.Setenv("WM_TEST_PRICES_URL", "http://mock")
+	if got := envURL("WM_TEST_PRICES_URL", "def"); got != "http://mock" {
+		t.Fatalf("set: got %q", got)
+	}
+	if got := envURL("WM_TEST_UNSET_URL", "def"); got != "def" {
+		t.Fatalf("unset: got %q", got)
+	}
+}
+
 func TestParse(t *testing.T) {
 	got, err := Parse([]byte(fixture))
 	if err != nil {

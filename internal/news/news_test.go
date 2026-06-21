@@ -11,6 +11,16 @@ const xmlFix = `<rss><channel>
 <item><title>VALE3 - Comunicado</title><pubDate>Fri, 19 Jun 2026 18:00:00 GMT</pubDate></item>
 </channel></rss>`
 
+func TestEnvURL(t *testing.T) {
+	t.Setenv("WM_TEST_NEWS_URL", "http://mock")
+	if got := envURL("WM_TEST_NEWS_URL", "def"); got != "http://mock" {
+		t.Fatalf("set: got %q", got)
+	}
+	if got := envURL("WM_TEST_UNSET_URL", "def"); got != "def" {
+		t.Fatalf("unset: got %q", got)
+	}
+}
+
 func TestParseAndFresh(t *testing.T) {
 	items, err := ParseItems([]byte(xmlFix))
 	if err != nil || len(items) != 2 {

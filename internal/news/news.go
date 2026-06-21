@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -17,7 +18,14 @@ var httpClient = &http.Client{Timeout: 10 * time.Second}
 // live RAD payload is <CVM><documento> rather than the RSS <channel><item> this
 // package parses, so a live fetch yields zero items today and the glance falls
 // back to price-only — graceful by design until the RSS feed URL is wired.
-var FeedURL = "https://www.rad.cvm.gov.br/ENETCONSULTA/frmGetXml.aspx?TipoConsulta=c&CodigoInstituicao=1"
+var FeedURL = envURL("WATCHMAN_NEWS_URL", "https://www.rad.cvm.gov.br/ENETCONSULTA/frmGetXml.aspx?TipoConsulta=c&CodigoInstituicao=1")
+
+func envURL(key, def string) string {
+	if u := os.Getenv(key); u != "" {
+		return u
+	}
+	return def
+}
 
 // Item is a single feed entry reduced to what the verdict needs.
 type Item struct {

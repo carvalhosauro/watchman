@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -50,8 +51,16 @@ func Parse(body []byte) ([]float64, error) {
 	return out, nil
 }
 
-// BaseURL is overridable in tests (httptest); default = Yahoo Finance chart API.
-var BaseURL = "https://query1.finance.yahoo.com/v8/finance/chart"
+// BaseURL is the Yahoo chart endpoint. Tests override it directly (httptest);
+// WATCHMAN_PRICES_URL overrides the default for the built binary (e2e mocking).
+var BaseURL = envURL("WATCHMAN_PRICES_URL", "https://query1.finance.yahoo.com/v8/finance/chart")
+
+func envURL(key, def string) string {
+	if u := os.Getenv(key); u != "" {
+		return u
+	}
+	return def
+}
 
 // History fetches recent daily closes for ticker from Yahoo Finance.
 func History(ticker string) ([]float64, error) {
