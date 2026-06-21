@@ -3,9 +3,18 @@ package news
 
 import (
 	"encoding/xml"
+	"io"
+	"net/http"
 	"strings"
 	"time"
 )
+
+// FeedURL is the CVM material-fact source; overridable in tests (httptest).
+// Default = CVM RAD endpoint (see reference lib/watchman/news/cvm.ex). Note: the
+// live RAD payload is <CVM><documento> rather than the RSS <channel><item> this
+// package parses, so a live fetch yields zero items today and the glance falls
+// back to price-only — graceful by design until the RSS feed URL is wired.
+var FeedURL = "https://www.rad.cvm.gov.br/ENETCONSULTA/frmGetXml.aspx?TipoConsulta=c&CodigoInstituicao=1"
 
 // Item is a single feed entry reduced to what the verdict needs.
 type Item struct {
@@ -41,6 +50,33 @@ func Fresh(ticker string, items []Item, today string) bool {
 		}
 	}
 	return false
+}
+
+// FetchItems GETs the feed once per run and returns parsed items, or nil on any
+// failure (network, status, read, parse). News is a soft signal: never error up.
+func FetchItems() []Item {
+	req, err := http.NewRequest(http.MethodGet, FeedURL, nil)
+	if err != nil {
+		return nil
+	}
+	req.Header.Set("User-Agent", "watchman/2.0")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil
+	}
+	items, err := ParseItems(body)
+	if err != nil {
+		return nil
+	}
+	return items
 }
 
 func parseDate(pub string) string {
