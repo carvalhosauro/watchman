@@ -22,7 +22,10 @@ func TestRunCommand(t *testing.T) {
 	}))
 	defer srv.Close()
 	prices.BaseURL = srv.URL
-	news.FeedURL = "http://127.0.0.1:0/bad" // hermetic: no real CVM call
+	// hermetic + fast: a closed server refuses at once → no real CVM call
+	dead := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	dead.Close()
+	news.FeedURL = dead.URL
 
 	wf := filepath.Join(t.TempDir(), "wallet")
 	os.WriteFile(wf, []byte("PETR4\n"), 0o644)

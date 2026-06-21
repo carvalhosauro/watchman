@@ -45,7 +45,9 @@ func TestFetchItemsFlow(t *testing.T) {
 func TestFetchItemsGraceful(t *testing.T) {
 	orig := FeedURL
 	t.Cleanup(func() { FeedURL = orig })
-	FeedURL = "http://127.0.0.1:0/bad"
+	dead := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	FeedURL = dead.URL
+	dead.Close() // closed server → connection refused at once, exercises the graceful nil path
 	if items := FetchItems(); items != nil {
 		t.Fatalf("want nil on failure, got %v", items)
 	}

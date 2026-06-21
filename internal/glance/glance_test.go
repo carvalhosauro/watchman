@@ -44,7 +44,10 @@ func TestRunFlow(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte(body)) }))
 	defer srv.Close()
 	prices.BaseURL = srv.URL
-	news.FeedURL = "http://127.0.0.1:0/bad" // keep news hermetic: no real CVM call, price-only path
+	// keep news hermetic + fast: a closed server refuses at once → FetchItems nil → price-only path
+	dead := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	dead.Close()
+	news.FeedURL = dead.URL
 
 	rows := Run([]string{"PETR4"})
 	if len(rows) != 1 || !rows[0].Look {

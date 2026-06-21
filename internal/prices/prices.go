@@ -7,7 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
+
+// httpClient bounds each fetch so a hung upstream can't stall wm run.
+var httpClient = &http.Client{Timeout: 10 * time.Second}
 
 // ErrNoData is returned when the response carries no usable price series.
 var ErrNoData = errors.New("no price data")
@@ -54,7 +58,7 @@ func History(ticker string) ([]float64, error) {
 	url := fmt.Sprintf("%s/%s.SA?range=2mo&interval=1d", BaseURL, ticker)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	req.Header.Set("User-Agent", "watchman/2.0")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

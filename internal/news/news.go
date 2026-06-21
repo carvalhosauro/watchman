@@ -9,6 +9,9 @@ import (
 	"time"
 )
 
+// httpClient bounds the feed fetch so a hung upstream can't stall wm run.
+var httpClient = &http.Client{Timeout: 10 * time.Second}
+
 // FeedURL is the CVM material-fact source; overridable in tests (httptest).
 // Default = CVM RAD endpoint (see reference lib/watchman/news/cvm.ex). Note: the
 // live RAD payload is <CVM><documento> rather than the RSS <channel><item> this
@@ -60,7 +63,7 @@ func FetchItems() []Item {
 		return nil
 	}
 	req.Header.Set("User-Agent", "watchman/2.0")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil
 	}
