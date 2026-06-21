@@ -1,30 +1,38 @@
-// Package verdict is the deterministic ignore/LOOK rule. You can read why it fired.
+// Package verdict reduces a set of signals to one severity + count, with a
+// human-readable reason naming the signals that fired.
 package verdict
 
 import (
-	"fmt"
+	"strings"
 
-	"github.com/carvalhosauro/watchman/internal/anomaly"
+	"github.com/carvalhosauro/watchman/internal/signals"
 )
 
-// Decision is the per-ticker call: Look says "worth a look", Reason explains why.
+// Decision is the per-ticker call.
 type Decision struct {
-	Look   bool
-	Reason string
+	Severity signals.Severity
+	Count    int
+	Reason   string
 }
 
-// Decide applies the ordered rule: fresh news always escalates, an abnormal
-// move escalates, otherwise it's noise to ignore.
-func Decide(a anomaly.Result, hasNews bool) Decision {
-	move := fmt.Sprintf("%.1f%% (%.1fσ/30d)", a.Pct, a.Z)
-	switch {
-	case a.Abnormal && hasNews:
-		return Decision{true, "moved " + move + " + fresh material news"}
-	case hasNews:
-		return Decision{true, "fresh material news"}
-	case a.Abnormal:
-		return Decision{true, "moved " + move + " vs 30d"}
-	default:
-		return Decision{false, "quiet (" + move + ")"}
+// Decide takes the max severity across signals; Count is how many fired
+// (≥ Watch); Reason joins the fired signals' reasons (or "quiet").
+func Decide(sigs []signals.Signal) Decision {
+	d := Decision{Severity: signals.Calm}
+	reasons := make([]string, 0, len(sigs))
+	for _, s := range sigs {
+		if s.Severity >= signals.Watch {
+			d.Count++
+			reasons = append(reasons, s.Reason)
+			if s.Severity > d.Severity {
+				d.Severity = s.Severity
+			}
+		}
 	}
+	if len(reasons) == 0 {
+		d.Reason = "quiet"
+	} else {
+		d.Reason = strings.Join(reasons, " · ")
+	}
+	return d
 }
