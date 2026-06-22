@@ -66,6 +66,8 @@ func mean(xs []float64) float64 {
 	return s / float64(len(xs))
 }
 
+// stddev is the population standard deviation (N denominator) — the full recent
+// window is the distribution, not a sample of a larger one.
 func stddev(xs []float64, mu float64) float64 {
 	s := 0.0
 	for _, x := range xs {

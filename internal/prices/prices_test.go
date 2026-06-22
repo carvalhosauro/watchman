@@ -27,6 +27,9 @@ func TestParse(t *testing.T) {
 	if len(got) != 2 || got[0].Close != 10.0 || got[1].Close != 11.0 || got[1].Volume != 300 {
 		t.Fatalf("got %+v", got)
 	}
+	if got[0].Volume != 100 || got[0].Date != "2024-06-10" {
+		t.Fatalf("first bar volume/date wrong: %+v", got[0])
+	}
 }
 
 func TestParseError(t *testing.T) {

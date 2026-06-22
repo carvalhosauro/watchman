@@ -37,7 +37,7 @@ func TestLiveRun(t *testing.T) {
 	got := out.String()
 	t.Logf("live output:\n%s", got)
 
-	verdict := regexp.MustCompile(`(LOOK|ignore)`)
+	verdict := regexp.MustCompile(`(LOOK|watch|calm|No data|API error)`)
 	for _, tk := range tickers {
 		var line string
 		for _, l := range strings.Split(got, "\n") {
@@ -51,7 +51,7 @@ func TestLiveRun(t *testing.T) {
 			continue
 		}
 		if !verdict.MatchString(line) {
-			t.Errorf("%s row has no verdict (LOOK/ignore): %q", tk, line)
+			t.Errorf("%s row has no verdict (LOOK/watch/calm) or failure: %q", tk, line)
 		}
 	}
 }
