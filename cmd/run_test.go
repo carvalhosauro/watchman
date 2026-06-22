@@ -9,27 +9,24 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/carvalhosauro/watchman/internal/news"
 	"github.com/carvalhosauro/watchman/internal/prices"
 )
 
 func TestRunCommand(t *testing.T) {
-	origPrices, origFeed := prices.BaseURL, news.FeedURL
-	t.Cleanup(func() { prices.BaseURL, news.FeedURL = origPrices, origFeed })
-
+	orig := prices.BaseURL
+	t.Cleanup(func() { prices.BaseURL = orig })
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Write([]byte(`{"chart":{"error":null,"result":[{"indicators":{"quote":[{"close":[10,10,10,11]}]}}]}}`))
+		_, _ = w.Write([]byte(`{"chart":{"error":null,"result":[{"timestamp":[1,2,3,4],"indicators":{"quote":[{"close":[10,10,10,11],"volume":[1,1,1,1]}]}}]}}`))
 	}))
 	defer srv.Close()
 	prices.BaseURL = srv.URL
-	// hermetic + fast: a closed server refuses at once → no real CVM call
-	dead := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
-	dead.Close()
-	news.FeedURL = dead.URL
 
 	wf := filepath.Join(t.TempDir(), "wallet")
-	os.WriteFile(wf, []byte("PETR4\n"), 0o644)
+	if err := os.WriteFile(wf, []byte("PETR4\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("WATCHMAN_WALLET", wf)
+	t.Setenv("WATCHMAN_CONFIG", filepath.Join(t.TempDir(), "none.toml")) // hermetic: force defaults
 
 	var out bytes.Buffer
 	rootCmd.SetOut(&out)

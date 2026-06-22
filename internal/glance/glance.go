@@ -1,58 +1,117 @@
-// Package glance assembles and formats the per-ticker ignore/LOOK output.
+// Package glance assembles, ranks, and renders the per-ticker anomaly glance.
 package glance
 
 import (
+	"errors"
 	"fmt"
+	"math"
+	"sort"
 	"strings"
-	"time"
 
-	"github.com/carvalhosauro/watchman/internal/anomaly"
-	"github.com/carvalhosauro/watchman/internal/news"
 	"github.com/carvalhosauro/watchman/internal/prices"
+	"github.com/carvalhosauro/watchman/internal/signals"
 	"github.com/carvalhosauro/watchman/internal/verdict"
 )
 
-// Row is one ticker's verdict line.
+// Row is one ticker's verdict; Fail is non-empty when the fetch failed.
 type Row struct {
 	Ticker string
-	Look   bool
+	Sev    signals.Severity
+	Count  int
 	Reason string
+	Fail   string
+	Sigs   []signals.Signal
+	mag    float64
 }
 
-// BuildRow is the pure assembly: closes + fetch error + news flag → a verdict row.
-func BuildRow(ticker string, closes []float64, fetchErr error, hasNews bool) Row {
+// BuildRow is the pure assembly: bars + fetch error → a ranked row.
+func BuildRow(ticker string, bars []prices.Bar, fetchErr error, t signals.Thresholds) Row {
 	if fetchErr != nil {
-		return Row{ticker, false, "no price data"}
+		fail := "API error"
+		if errors.Is(fetchErr, prices.ErrNoData) {
+			fail = "No data"
+		}
+		return Row{Ticker: ticker, Fail: fail}
 	}
-	a, err := anomaly.Analyze(closes)
-	if err != nil {
-		return Row{ticker, false, "not enough price history"}
+	sigs := signals.Evaluate(bars, t)
+	d := verdict.Decide(sigs)
+	mag := 0.0
+	for _, s := range sigs {
+		if s.Severity >= signals.Watch && math.Abs(s.Value) > mag {
+			mag = math.Abs(s.Value)
+		}
 	}
-	d := verdict.Decide(a, hasNews)
-	return Row{ticker, d.Look, d.Reason}
+	return Row{Ticker: ticker, Sev: d.Severity, Count: d.Count, Reason: d.Reason, Sigs: sigs, mag: mag}
 }
 
-// Run is the impure path: one news fetch, then a price fetch per ticker.
-func Run(tickers []string) []Row {
-	items := news.FetchItems()
-	today := time.Now().UTC().Format("2006-01-02")
+// Run is the impure path: fetch each ticker, build its row.
+func Run(tickers []string, t signals.Thresholds) []Row {
 	rows := make([]Row, 0, len(tickers))
-	for _, t := range tickers {
-		closes, err := prices.History(t)
-		rows = append(rows, BuildRow(t, closes, err, news.Fresh(t, items, today)))
+	for _, tk := range tickers {
+		bars, err := prices.History(tk)
+		rows = append(rows, BuildRow(tk, bars, err, t))
 	}
 	return rows
 }
 
-// Format renders rows into the one-screen glance.
-func Format(rows []Row) string {
+// OnlyAttention drops Calm rows but keeps failures and watch/LOOK rows.
+func OnlyAttention(rows []Row) []Row {
+	out := make([]Row, 0, len(rows))
+	for _, r := range rows {
+		if r.Fail != "" || r.Sev >= signals.Watch {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// Format renders rows worst-first. With detail, every signal is listed.
+func Format(rows []Row, detail bool) string {
+	sort.SliceStable(rows, func(i, j int) bool {
+		if rows[i].rank() != rows[j].rank() {
+			return rows[i].rank() > rows[j].rank()
+		}
+		if rows[i].Count != rows[j].Count {
+			return rows[i].Count > rows[j].Count
+		}
+		return rows[i].mag > rows[j].mag
+	})
 	var b strings.Builder
 	for _, r := range rows {
-		if r.Look {
-			fmt.Fprintf(&b, "  ⚠ LOOK   %-8s %s\n", r.Ticker, r.Reason)
-		} else {
-			fmt.Fprintf(&b, "    ignore %-8s %s\n", r.Ticker, r.Reason)
+		switch {
+		case r.Fail != "":
+			fmt.Fprintf(&b, "    —      %-8s %s\n", r.Ticker, r.Fail)
+		case detail:
+			fmt.Fprintf(&b, "  %-6s %-8s %s\n", label(r.Sev), r.Ticker, allSignals(r.Sigs))
+		default:
+			fmt.Fprintf(&b, "  %-6s %-8s %s\n", label(r.Sev), r.Ticker, r.Reason)
 		}
 	}
 	return b.String()
+}
+
+// rank orders failures last, then by severity.
+func (r Row) rank() int {
+	if r.Fail != "" {
+		return -1
+	}
+	return int(r.Sev)
+}
+
+func label(s signals.Severity) string {
+	if s == signals.Look {
+		return "⚠ LOOK"
+	}
+	return s.String()
+}
+
+func allSignals(sigs []signals.Signal) string {
+	if len(sigs) == 0 {
+		return "no signals"
+	}
+	parts := make([]string, len(sigs))
+	for i, s := range sigs {
+		parts[i] = s.Reason
+	}
+	return strings.Join(parts, " · ")
 }

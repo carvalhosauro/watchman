@@ -25,7 +25,6 @@ func TestScripts(t *testing.T) {
 		Dir: "testdata/script",
 		Setup: func(e *testscript.Env) error {
 			e.Setenv("WATCHMAN_PRICES_URL", srv.URL+"/prices")
-			e.Setenv("WATCHMAN_NEWS_URL", srv.URL+"/news")
 			e.Setenv("WATCHMAN_WALLET", filepath.Join(e.WorkDir, "wallet"))
 			return nil
 		},

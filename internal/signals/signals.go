@@ -12,6 +12,7 @@ import (
 // Severity ranks how much attention a signal demands.
 type Severity int
 
+// Severity levels in increasing order of attention.
 const (
 	Calm Severity = iota
 	Watch
