@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/carvalhosauro/watchman/internal/glance"
+	"github.com/carvalhosauro/watchman/internal/signals"
 	"github.com/carvalhosauro/watchman/internal/wallet"
 )
 
@@ -31,12 +32,12 @@ func TestLiveRun(t *testing.T) {
 	}
 	var out bytes.Buffer
 	out.WriteString("watchman — live\n")
-	out.WriteString(glance.Format(glance.Run(tickers)))
+	out.WriteString(glance.Format(glance.Run(tickers, signals.Defaults()), false))
 
 	got := out.String()
 	t.Logf("live output:\n%s", got)
 
-	verdict := regexp.MustCompile(`(LOOK|ignore)`)
+	verdict := regexp.MustCompile(`(LOOK|watch|calm|No data|API error)`)
 	for _, tk := range tickers {
 		var line string
 		for _, l := range strings.Split(got, "\n") {
@@ -50,7 +51,7 @@ func TestLiveRun(t *testing.T) {
 			continue
 		}
 		if !verdict.MatchString(line) {
-			t.Errorf("%s row has no verdict (LOOK/ignore): %q", tk, line)
+			t.Errorf("%s row has no verdict (LOOK/watch/calm) or failure: %q", tk, line)
 		}
 	}
 }

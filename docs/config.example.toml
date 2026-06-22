@@ -1,0 +1,24 @@
+# watchman config — copy to ~/.config/watchman/config.toml (or set $WATCHMAN_CONFIG).
+# Every key is optional; any you omit keeps its built-in default (shown here).
+# Thresholds are the only tunables — the engine itself stays deterministic.
+
+[zscore]      # today's return vs its own recent volatility (standard deviations)
+watch = 2.0
+look  = 3.0
+
+[rsi]         # Wilder RSI(14) momentum, 0–100
+watch_high = 70
+look_high  = 80
+watch_low  = 30
+look_low   = 20
+
+[drawdown]    # percent below the trailing peak (negative)
+watch = -10
+look  = -20
+
+[prox52w]     # percent within the 1-year high/low to flag watch (a break = LOOK)
+band = 3.0
+
+[volume]      # latest volume ÷ 20-day average
+watch = 2.0
+look  = 3.0

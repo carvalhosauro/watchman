@@ -21,17 +21,27 @@ type chartResp struct {
 	Chart struct {
 		Error  any `json:"error"`
 		Result []struct {
+			Timestamp  []int64 `json:"timestamp"`
 			Indicators struct {
 				Quote []struct {
-					Close []*float64 `json:"close"`
+					Close  []*float64 `json:"close"`
+					Volume []*float64 `json:"volume"`
 				} `json:"quote"`
 			} `json:"indicators"`
 		} `json:"result"`
 	} `json:"chart"`
 }
 
-// Parse extracts daily closes (oldest→newest, nils dropped) from a Yahoo chart payload.
-func Parse(body []byte) ([]float64, error) {
+// Bar is one trading day's close and volume.
+type Bar struct {
+	Date   string
+	Close  float64
+	Volume float64
+}
+
+// Parse extracts daily bars (oldest→newest) from a Yahoo chart payload; bars
+// with a null close are dropped.
+func Parse(body []byte) ([]Bar, error) {
 	var r chartResp
 	if err := json.Unmarshal(body, &r); err != nil {
 		return nil, err
@@ -42,11 +52,24 @@ func Parse(body []byte) ([]float64, error) {
 	if len(r.Chart.Result) == 0 || len(r.Chart.Result[0].Indicators.Quote) == 0 {
 		return nil, ErrNoData
 	}
-	out := []float64{}
-	for _, c := range r.Chart.Result[0].Indicators.Quote[0].Close {
-		if c != nil {
-			out = append(out, *c)
+	res := r.Chart.Result[0]
+	q := res.Indicators.Quote[0]
+	out := make([]Bar, 0, len(q.Close))
+	for i, c := range q.Close {
+		if c == nil {
+			continue
 		}
+		b := Bar{Close: *c}
+		if i < len(res.Timestamp) {
+			b.Date = time.Unix(res.Timestamp[i], 0).UTC().Format("2006-01-02")
+		}
+		if i < len(q.Volume) && q.Volume[i] != nil {
+			b.Volume = *q.Volume[i]
+		}
+		out = append(out, b)
+	}
+	if len(out) == 0 {
+		return nil, ErrNoData
 	}
 	return out, nil
 }
@@ -62,10 +85,13 @@ func envURL(key, def string) string {
 	return def
 }
 
-// History fetches recent daily closes for ticker from Yahoo Finance.
-func History(ticker string) ([]float64, error) {
-	url := fmt.Sprintf("%s/%s.SA?range=2mo&interval=1d", BaseURL, ticker)
-	req, _ := http.NewRequest(http.MethodGet, url, nil)
+// History fetches ~1 year of daily bars for ticker from Yahoo Finance.
+func History(ticker string) ([]Bar, error) {
+	url := fmt.Sprintf("%s/%s.SA?range=1y&interval=1d", BaseURL, ticker)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
 	req.Header.Set("User-Agent", "watchman/2.0")
 	resp, err := httpClient.Do(req)
 	if err != nil {

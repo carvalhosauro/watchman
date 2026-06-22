@@ -4,27 +4,33 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/carvalhosauro/watchman/internal/anomaly"
+	"github.com/carvalhosauro/watchman/internal/signals"
 )
 
 func TestDecide(t *testing.T) {
-	calm := anomaly.Result{Pct: 0.3, Z: 0.4, Abnormal: false}
-	wild := anomaly.Result{Pct: -6.1, Z: -2.8, Abnormal: true}
-	cases := []struct {
-		a    anomaly.Result
-		news bool
-		look bool
-		must string
-	}{
-		{calm, false, false, "quiet"},
-		{wild, false, true, "-6.1%"},
-		{calm, true, true, "news"},
-		{wild, true, true, "news"},
+	in := []signals.Signal{
+		{Name: "zscore", Severity: signals.Look, Reason: "-6.1% (2.8σ)"},
+		{Name: "rsi", Severity: signals.Watch, Reason: "RSI 72"},
+		{Name: "volume", Severity: signals.Calm, Reason: "vol 1.1×"},
 	}
-	for _, c := range cases {
-		d := Decide(c.a, c.news)
-		if d.Look != c.look || !strings.Contains(d.Reason, c.must) {
-			t.Fatalf("Decide(%+v,%v)=%+v want look=%v ~%q", c.a, c.news, d, c.look, c.must)
-		}
+	d := Decide(in)
+	if d.Severity != signals.Look {
+		t.Fatalf("severity=%v", d.Severity)
+	}
+	if d.Count != 2 { // Look + Watch fired; Calm doesn't count
+		t.Fatalf("count=%d", d.Count)
+	}
+	if !strings.Contains(d.Reason, "2.8σ") || strings.Contains(d.Reason, "1.1×") {
+		t.Fatalf("reason=%q", d.Reason)
+	}
+}
+
+func TestDecideCalm(t *testing.T) {
+	d := Decide([]signals.Signal{{Name: "zscore", Severity: signals.Calm}})
+	if d.Severity != signals.Calm || d.Count != 0 {
+		t.Fatalf("got %+v", d)
+	}
+	if d.Reason != "quiet" {
+		t.Fatalf("reason=%q", d.Reason)
 	}
 }

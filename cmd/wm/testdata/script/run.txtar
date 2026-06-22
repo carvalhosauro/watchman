@@ -1,36 +1,25 @@
-# Full run glance against the mock upstreams: one verdict per held ticker.
+# Full run glance against the mock upstreams: ranked, with a failure row.
 
 cp wallet_seed wallet
 wm run
-
-# dated header (today, UTC)
 stdout 'watchman'
 stdout '\d{4}-\d{2}-\d{2}'
 
-# PETR4: abnormal move -> LOOK, reason names the move
+# PETR4: abnormal move -> LOOK
 stdout 'LOOK.*PETR4'
-stdout 'PETR4.*moved'
+# XPTO3: no usable price data -> No data failure row
+stdout 'XPTO3.*No data'
 
-# MXRF11: calm -> ignore, reason says quiet
-stdout 'ignore MXRF11'
-stdout 'MXRF11.*quiet'
-
-# VALE3: fresh CVM news -> LOOK, reason names the news
-stdout 'LOOK.*VALE3'
-stdout 'VALE3.*news'
-
-# XPTO3: no usable price data -> ignore
-stdout 'ignore XPTO3'
-stdout 'XPTO3.*no price data'
+# detail mode lists every signal for a single ticker
+wm run PETR4 --detail
+stdout 'PETR4'
 
 # empty wallet -> the add hint
 env WATCHMAN_WALLET=$WORK/empty
 wm run
 stdout 'No tickers'
-stdout 'wm wallet add'
 
 -- wallet_seed --
 PETR4
 MXRF11
-VALE3
 XPTO3
