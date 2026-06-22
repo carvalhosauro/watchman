@@ -1,6 +1,30 @@
 # Changelog
 
 
+### Documentation
+
+- Anomaly-engine design spec + news-source research note
+
+- Refine anomaly-engine spec (configurable thresholds, typed errors, detail mode)
+
+- Anomaly engine implementation plan (11 tasks)
+
+
+### Features
+
+- Return 1y bars with volume
+
+- Severity types, thresholds, zscore
+
+- Rsi, drawdown, prox52w, volume + Evaluate
+
+- TOML thresholds with defaults
+
+- Severity + count from signals
+
+- Multi-signal anomaly glance; --detail/--look/ticker args; drop news+anomaly
+
+
 ### Bug Fixes
 
 - Check Fprintln error for lint
@@ -17,6 +41,14 @@
 - Rewrite README and CONTRIBUTING for Go
 
 - README + CHANGELOG for Phase A glance
+
+- Regenerate CHANGELOG
+
+- OSS-standard gap report + implementation plan
+
+- Add SECURITY.md + README status badges
+
+- Go 1.24 floor + correct dev setup (hooks path, coverage, testscript)
 
 
 ### Features
@@ -46,10 +78,16 @@
 
 - Move entrypoint to cmd/wm, build binary to bin/wm
 
+- Add Run() exit-code entry point for in-process testing
+
 
 ### Tests
 
 - Black-box wm suite + mock-driven run + live smoke
+
+- Black-box flows via testscript + httptest mock
+
+- Live smoke as a -tags live go test
 
 
 ### Tooling
@@ -75,6 +113,24 @@
 - Exclude misspell on test fixtures (Portuguese CVM text)
 
 - Raise coverage floor to 80
+
+- Replace e2e targets with smoke (testscript live)
+
+- Gen-docs for completions + man pages; bump Go floor to 1.24
+
+- Windows archives + bundled completions/man; gated brew tap
+
+- Cross-OS test matrix + govulncheck on stable
+
+- Make help, dependabot, CODEOWNERS, starter-issue drafts
+
+- Restrict CI workflow to main branch only
+
+- Track Go version from go.mod
+
+- Force LF line endings via .gitattributes for cross-platform testscript
+
+- Add CodeQL code scanning workflow
 
 
 ### Documentation
@@ -195,6 +251,60 @@
 
 ### Bug Fixes
 
+- Harden closer against scale, zero-price, and unknown inputs
+
+
+### Documentation
+
+- Realign roadmap and architecture around owned analytical layer
+
+- Mark Track 1 (accuracy tracking) shipped at v0.3.0
+
+
+### Features
+
+- Add analysis_outcomes table and AnalysisOutcome model
+
+- Add Accuracy.classify_outcome/3 pure classifier
+
+- Add [accuracy] config keys (lookahead_days, drop_threshold_pct)
+
+- Add Watchman.Calendar.add_business_days/2
+
+- Add Accuracy.close_pending_outcomes/0 idempotent closer
+
+- Wire Accuracy closer into Pipeline.run/0
+
+- Add Accuracy.report/1 query layer
+
+- Add wm accuracy CLI
+
+- Document wm accuracy in README and shell completions
+
+- Bump version to 0.3.0
+
+
+### Bug Fixes
+
+- Correct casing of Watchman.AI.Deepseek provider module name
+
+
+### Features
+
+- Implement database migrations and update model tests for v0.2.0 alerts
+
+
+### Tooling
+
+- Auto-commit CHANGELOG.md on tag release
+
+- Use PR instead of direct push for CHANGELOG.md
+
+- Trigger auto-tagging on push to main instead of PR closure
+
+
+### Bug Fixes
+
 - Use runtime project dir instead of hardcoded install path
 
 - Group store_keys/2 clauses to resolve compilation warning
@@ -231,10 +341,6 @@
 
 - Remove auto version bump from deploy-pr workflow
 
-- Correct casing of Watchman.AI.Deepseek provider module name
-
-- Harden closer against scale, zero-price, and unknown inputs
-
 
 ### Documentation
 
@@ -247,10 +353,6 @@
 - Add shell completions, scheduling, and logs to README
 
 - Add CONTRIBUTING.md, issue/PR templates, document wm update
-
-- Realign roadmap and architecture around owned analytical layer
-
-- Mark Track 1 (accuracy tracking) shipped at v0.3.0
 
 
 ### Features
@@ -311,28 +413,6 @@
 
 - Implement alert system and update watchman provider integration tests
 
-- Implement database migrations and update model tests for v0.2.0 alerts
-
-- Add analysis_outcomes table and AnalysisOutcome model
-
-- Add Accuracy.classify_outcome/3 pure classifier
-
-- Add [accuracy] config keys (lookahead_days, drop_threshold_pct)
-
-- Add Watchman.Calendar.add_business_days/2
-
-- Add Accuracy.close_pending_outcomes/0 idempotent closer
-
-- Wire Accuracy closer into Pipeline.run/0
-
-- Add Accuracy.report/1 query layer
-
-- Add wm accuracy CLI
-
-- Document wm accuracy in README and shell completions
-
-- Bump version to 0.3.0
-
 
 ### Refactor
 
@@ -358,12 +438,6 @@
 - Add deploy-to-main PR and auto-tag release workflows
 
 - Add deploy-to-main PR and auto-tag release workflows
-
-- Auto-commit CHANGELOG.md on tag release
-
-- Use PR instead of direct push for CHANGELOG.md
-
-- Trigger auto-tagging on push to main instead of PR closure
 
 
 ### Style

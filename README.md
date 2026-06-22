@@ -8,21 +8,28 @@
 
 > Is this market move noise, or worth a look? A single static CLI that watches the B3 assets you hold and, in one screen, tells you which to **ignore** and which to **LOOK** at.
 
-`wm` fetches recent price history and the CVM material-fact feed, then applies one deterministic rule per ticker. No database, no account, no advice — just a glance you can read in a breath.
+`wm` fetches ~1 year of daily prices and runs a deterministic, multi-signal anomaly engine per ticker. No database, no account, no advice, no AI — just a glance you can read in a breath, with every call explained.
 
-## The rule
+## The engine
 
-A ticker is flagged **LOOK** when **either**:
+Each held ticker is scored by five independent, pure signals — each a different lens on "is something unusual happening?":
 
-- its latest daily move is **abnormal** — a z-score of |Z| ≥ 2 against the last ~30 days of returns, **or**
-- there is **fresh material news** (a CVM fato relevante) for it **today**.
+| Signal | What it catches | watch | LOOK |
+|---|---|---|---|
+| **z-score** | today's move vs its own recent volatility | \|z\| ≥ 2 | \|z\| ≥ 3 |
+| **RSI(14)** | momentum exhaustion (overbought/oversold) | >70 / <30 | >80 / <20 |
+| **drawdown** | cumulative decline from the recent peak | ≤ −10% | ≤ −20% |
+| **52-week** | proximity to / break of the 1-year high or low | within 3% | new high/low |
+| **volume** | participation vs the 20-day average | ≥ 2× | ≥ 3× |
 
-Otherwise it's **ignore** (noise). The reason is always printed, so you can audit why it fired.
+A ticker's **severity** is the worst of its signals — **calm**, **watch**, or **⚠ LOOK** — and the number of signals firing breaks ties. `wm run` ranks your holdings worst-first and prints the reason, so you can audit exactly why each fired. No editorial weights; thresholds are yours to tune.
 
 ```text
-watchman — 2026-06-21
-  ⚠ LOOK   PETR4    moved -6.1% (-2.8σ/30d) + fresh material news
-    ignore MXRF11   quiet (0.6% (1.0σ/30d))
+watchman — 2026-06-22
+  ⚠ LOOK PETR4    RSI 27 · -22% vs peak
+  watch  ITUB4    -19% vs peak
+  watch  VALE3    -10% vs peak
+    —    XPTO3    No data
 ```
 
 ## Install
@@ -45,10 +52,22 @@ wm wallet add MXRF11
 wm wallet list           # show tracked tickers
 wm wallet remove PETR4
 
-wm run                   # the noise/look glance for everything you hold
+wm run                   # ranked glance over everything you hold
+wm run PETR4 VALE3       # limit to specific tickers (need not be in the wallet)
+wm run --look            # show only watch/LOOK rows (hide calm)
+wm run --detail PETR4    # show every signal's value, calm or not
 ```
 
 The wallet is a plain text file at `~/.config/watchman/wallet` (one ticker per line; `#` comments and blank lines ignored). Override the location with `$WATCHMAN_WALLET`.
+
+### Tuning thresholds
+
+Every threshold is configurable via `~/.config/watchman/config.toml` (override with `$WATCHMAN_CONFIG`); any missing key keeps its built-in default. See [`docs/config.example.toml`](docs/config.example.toml).
+
+```toml
+[zscore]
+look = 4.0   # only flag LOOK at |z| ≥ 4
+```
 
 Shell completion is built in:
 
@@ -58,12 +77,13 @@ wm completion bash       # also: zsh, fish, powershell
 
 ## What it doesn't do
 
-- No buy/sell advice or price targets — it points, it doesn't recommend.
+- No buy/sell advice or price targets — it points, it doesn't recommend. Technical signals are descriptive, not predictive.
+- No fundamentals, valuation, or screening — it watches what you hold, it doesn't pick.
+- No news/material-fact signal (dropped — sourcing didn't justify the value).
 - No database, no daemon, no background alerts or schedule (yet).
-- No history log, weighting, or per-ticker tuning (yet).
-- News is matched by ticker substring on the CVM feed; aliases and a live RSS feed URL are roadmap items. Until then `wm run` degrades gracefully to a price-only glance.
+- No AI, no editorial weighting — severity is the worst signal, ties broken by count.
 
-These are deliberate cuts for the value-core MVP. History, schedule, and self-update are the next phase.
+History, schedule, and self-update are the next phases — see [ROADMAP.md](ROADMAP.md).
 
 ## Develop
 
