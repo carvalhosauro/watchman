@@ -62,3 +62,15 @@ func TestRangePct(t *testing.T) {
 		t.Fatal("want ok=false for <200 bars")
 	}
 }
+
+func TestDrawdownPct(t *testing.T) {
+	b := testBars(10, 20, 18, 15)
+	b[1].Date = "2026-03-14"
+	dd, peakDate, peakClose, ok := drawdownPct(b)
+	if !ok || dd > -10 || peakClose != 20 || peakDate != "2026-03-14" {
+		t.Fatalf("got dd=%v peak=%v@%v ok=%v", dd, peakClose, peakDate, ok)
+	}
+	if _, _, _, ok := drawdownPct(testBars(10)); ok {
+		t.Fatal("want ok=false for 1 bar")
+	}
+}

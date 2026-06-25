@@ -24,3 +24,22 @@ func rangePct(bars []prices.Bar) (float64, bool) {
 	last := cs[len(cs)-1]
 	return (last - lo) / (hi - lo) * 100, true
 }
+
+func drawdownPct(bars []prices.Bar) (pct float64, peakDate string, peakClose float64, ok bool) {
+	if len(bars) < 2 {
+		return 0, "", 0, false
+	}
+	peak := bars[0].Close
+	peakDate = bars[0].Date
+	for _, b := range bars {
+		if b.Close > peak {
+			peak = b.Close
+			peakDate = b.Date
+		}
+	}
+	last := bars[len(bars)-1].Close
+	if peak == 0 {
+		return 0, peakDate, peak, true
+	}
+	return (last - peak) / peak * 100, peakDate, peak, true
+}
