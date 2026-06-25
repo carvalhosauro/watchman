@@ -32,3 +32,20 @@ func TestFormatJSON(t *testing.T) {
 		t.Fatalf("err=%v out=%q", err, out)
 	}
 }
+
+func TestFormatDetail(t *testing.T) {
+	r := Result{
+		Ticker: "PETR4", Close: 38.42,
+		Readings: Readings{
+			RangePct: ptr(18), DrawdownPct: ptr(-22), SMA200Pct: ptr(-12),
+			RSI: ptr(27), VolumeRatio: ptr(1.4),
+		},
+		Meta: Meta{PeakDate: "2026-03-14", PeakClose: 49.2, SMA200: 43.6},
+	}
+	out := FormatDetail(r)
+	for _, want := range []string{"PETR4", "range", "18%", "drawdown", "rsi", "27", "volume", "1.4"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in %q", want, out)
+		}
+	}
+}

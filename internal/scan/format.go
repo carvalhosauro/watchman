@@ -71,3 +71,39 @@ func FormatJSON(asOf string, results []Result) (string, error) {
 	}
 	return string(b) + "\n", nil
 }
+
+func FormatDetail(r Result) string {
+	if r.Error != "" {
+		return fmt.Sprintf("%s\n\n  error  %s\n", r.Ticker, r.Error)
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s @ R$ %.2f\n\n", r.Ticker, r.Close)
+	if r.Readings.RangePct != nil {
+		fmt.Fprintf(&b, "  range     %3.0f%%   (position in 52-week low–high band)\n", *r.Readings.RangePct)
+	}
+	if r.Readings.DrawdownPct != nil {
+		fmt.Fprintf(&b, "  drawdown  %+4.0f%%   (from peak R$ %.2f on %s)\n",
+			*r.Readings.DrawdownPct, r.Meta.PeakClose, r.Meta.PeakDate)
+	}
+	if r.Readings.SMA200Pct != nil {
+		fmt.Fprintf(&b, "  sma200    %+4.0f%%   (200-day average R$ %.2f)\n", *r.Readings.SMA200Pct, r.Meta.SMA200)
+	}
+	if r.Readings.RSI != nil {
+		fmt.Fprintf(&b, "  rsi       %3.0f     (14-day Wilder)\n", *r.Readings.RSI)
+	}
+	if r.Readings.VolumeRatio != nil {
+		fmt.Fprintf(&b, "  volume    %.1f×    (vs 20-day average)\n", *r.Readings.VolumeRatio)
+	}
+	return b.String()
+}
+
+func FormatDetailAll(results []Result) string {
+	var b strings.Builder
+	for i, r := range results {
+		b.WriteString(FormatDetail(r))
+		if i < len(results)-1 {
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
+}
