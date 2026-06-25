@@ -31,3 +31,34 @@ func TestCloseSeries(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+func TestRangePct(t *testing.T) {
+	lo := make([]float64, 200)
+	for i := range lo {
+		lo[i] = 10
+	}
+	lo[199] = 20 // close at high → 100%
+	if v, ok := rangePct(testBars(lo...)); !ok || v < 99 {
+		t.Fatalf("at high: got %v ok=%v", v, ok)
+	}
+
+	hi := make([]float64, 200)
+	for i := range hi {
+		hi[i] = 10 + float64(i)*0.1
+	}
+	// close near low of series after being high earlier — craft explicit:
+	b := testBars(10, 20, 10, 20)
+	b = b[:0]
+	vals := make([]float64, 200)
+	for i := range vals {
+		vals[i] = 100
+	}
+	vals[199] = 10 // at low
+	if v, ok := rangePct(testBars(vals...)); !ok || v > 1 {
+		t.Fatalf("at low: got %v ok=%v", v, ok)
+	}
+
+	if _, ok := rangePct(testBars(10, 11)); ok {
+		t.Fatal("want ok=false for <200 bars")
+	}
+}
