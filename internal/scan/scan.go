@@ -1,3 +1,5 @@
+// Package scan computes neutral technical readouts (range, drawdown, SMA200, RSI, volume)
+// from price history without anomaly severity or verdict types.
 package scan
 
 import (

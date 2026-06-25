@@ -63,6 +63,7 @@ func fmtNum(p *float64, prec int) string {
 	return fmt.Sprintf("%*.*f", 3+prec, prec, *p)
 }
 
+// FormatJSON renders scan results as indented JSON with an as_of timestamp.
 func FormatJSON(asOf string, results []Result) (string, error) {
 	payload := jsonOut{AsOf: asOf, Tickers: results}
 	b, err := json.MarshalIndent(payload, "", "  ")
@@ -72,6 +73,7 @@ func FormatJSON(asOf string, results []Result) (string, error) {
 	return string(b) + "\n", nil
 }
 
+// FormatDetail renders one ticker's expanded factual readout.
 func FormatDetail(r Result) string {
 	if r.Error != "" {
 		return fmt.Sprintf("%s\n\n  error  %s\n", r.Ticker, r.Error)
@@ -97,6 +99,7 @@ func FormatDetail(r Result) string {
 	return b.String()
 }
 
+// FormatDetailAll renders expanded readouts for every result.
 func FormatDetailAll(results []Result) string {
 	var b strings.Builder
 	for i, r := range results {

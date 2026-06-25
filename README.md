@@ -56,6 +56,11 @@ wm run                   # ranked glance over everything you hold
 wm run PETR4 VALE3       # limit to specific tickers (need not be in the wallet)
 wm run --look            # show only watch/LOOK rows (hide calm)
 wm run --detail PETR4    # show every signal's value, calm or not
+
+wm scan                   # neutral technical readout (RANGE, DRAWDOWN, vs SMA200, RSI)
+wm scan SCAN1             # single ticker
+wm scan --detail SCAN1    # expanded factual context
+wm scan --json            # machine-readable output
 ```
 
 The wallet is a plain text file at `~/.config/watchman/wallet` (one ticker per line; `#` comments and blank lines ignored). Override the location with `$WATCHMAN_WALLET`.
@@ -77,7 +82,7 @@ wm completion bash       # also: zsh, fish, powershell
 
 ## What it doesn't do
 
-- No buy/sell advice or price targets — it points, it doesn't recommend. Technical signals are descriptive, not predictive.
+- No buy/sell advice or price targets — it points, it doesn't recommend. Technical signals are descriptive, not predictive; `wm scan` shows numbers only, not advice.
 - No fundamentals, valuation, or screening — it watches what you hold, it doesn't pick.
 - No news/material-fact signal (dropped — sourcing didn't justify the value).
 - No database, no daemon, no background alerts or schedule (yet).

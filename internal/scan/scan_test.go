@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/carvalhosauro/watchman/internal/prices"
 )
@@ -15,16 +14,6 @@ func testBars(closes ...float64) []prices.Bar {
 	out := make([]prices.Bar, len(closes))
 	for i, c := range closes {
 		out[i] = prices.Bar{Date: "2026-01-01", Close: c, Volume: 1000}
-	}
-	return out
-}
-
-func barsWithDates(closes []float64, startDate string) []prices.Bar {
-	t, _ := time.Parse("2006-01-02", startDate)
-	out := make([]prices.Bar, len(closes))
-	for i, c := range closes {
-		out[i] = prices.Bar{Date: t.Format("2006-01-02"), Close: c, Volume: 1000}
-		t = t.AddDate(0, 0, 1)
 	}
 	return out
 }
@@ -50,9 +39,7 @@ func TestRangePct(t *testing.T) {
 	for i := range hi {
 		hi[i] = 10 + float64(i)*0.1
 	}
-	// close near low of series after being high earlier — craft explicit:
-	b := testBars(10, 20, 10, 20)
-	b = b[:0]
+	// close near low of series after being high earlier
 	vals := make([]float64, 200)
 	for i := range vals {
 		vals[i] = 100
@@ -212,7 +199,7 @@ func scanFixture() []byte {
 }
 
 func TestRun(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write(scanFixture())
 	}))
 	defer srv.Close()
