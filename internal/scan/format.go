@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"text/tabwriter"
 )
 
 type jsonOut struct {
@@ -22,7 +21,6 @@ func FormatTable(results []Result, tickerCount int) string {
 
 // FormatTableBody renders table columns only (used by CLI with real date in header).
 func FormatTableBody(results []Result) string {
-	w := tabwriter.NewWriter(&strings.Builder{}, 0, 0, 2, ' ', 0)
 	var b strings.Builder
 	b.WriteString("TICKER   RANGE   DRAWDOWN   vs SMA200   RSI\n")
 	for _, r := range results {
@@ -38,7 +36,6 @@ func FormatTableBody(results []Result) string {
 			fmtNum(r.Readings.RSI, 0),
 		)
 	}
-	_ = w
 	return b.String()
 }
 
