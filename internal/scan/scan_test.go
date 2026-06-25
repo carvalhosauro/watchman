@@ -74,3 +74,22 @@ func TestDrawdownPct(t *testing.T) {
 		t.Fatal("want ok=false for 1 bar")
 	}
 }
+
+func TestSMA200Pct(t *testing.T) {
+	vals := make([]float64, 200)
+	for i := range vals {
+		vals[i] = 100
+	}
+	vals[199] = 110 // +10% above SMA200 of 100s... SMA of 100..99,100 with last 110
+	b := testBars(vals...)
+	pct, sma, ok := sma200Pct(b)
+	if !ok || sma == 0 {
+		t.Fatalf("got pct=%v sma=%v ok=%v", pct, sma, ok)
+	}
+	if pct <= 0 {
+		t.Fatalf("want positive pct above sma, got %v", pct)
+	}
+	if _, _, ok := sma200Pct(testBars(10, 11)); ok {
+		t.Fatal("want ok=false for <200 bars")
+	}
+}
