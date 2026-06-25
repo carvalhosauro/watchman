@@ -38,7 +38,7 @@ func init() {
 				_, _ = fmt.Fprint(out, s)
 				return nil
 			}
-			header := scan.FormatHeader(date, len(tickers))
+			header := scan.FormatHeader(date, len(results))
 			if detail {
 				_, _ = fmt.Fprint(out, header)
 				_, _ = fmt.Fprint(out, scan.FormatDetailAll(results))

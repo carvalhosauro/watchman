@@ -54,25 +54,27 @@ func fmtPct(p *float64) string {
 	if p == nil {
 		return "—"
 	}
-	return fmt.Sprintf("%3.0f%%", *p)
+	return fmt.Sprintf("%.0f%%", *p)
 }
 
+// fmtPctSigned keeps the sign glued to the digits (e.g. "−1%", "+3%"); column
+// padding is left to tabwriter so single- and multi-digit values stay aligned.
 func fmtPctSigned(p *float64) string {
 	if p == nil {
 		return "—"
 	}
 	v := *p
-	if v >= 0 {
-		return fmt.Sprintf("+%3.0f%%", v)
+	if v < 0 {
+		return fmt.Sprintf("−%.0f%%", -v)
 	}
-	return fmt.Sprintf("−%3.0f%%", -v)
+	return fmt.Sprintf("+%.0f%%", v)
 }
 
 func fmtNum(p *float64) string {
 	if p == nil {
 		return "—"
 	}
-	return fmt.Sprintf("%3.0f", *p)
+	return fmt.Sprintf("%.0f", *p)
 }
 
 // FormatJSON renders scan results as indented JSON with an as_of timestamp.
@@ -85,29 +87,37 @@ func FormatJSON(asOf string, results []Result) (string, error) {
 	return string(b) + "\n", nil
 }
 
-// FormatDetail renders one ticker's expanded factual readout.
+// FormatDetail renders one ticker's expanded factual readout. Indicator lines are
+// tab-aligned so the parenthetical context columns line up regardless of value width
+// (tabwriter measures runes, so the Unicode minus does not skew alignment).
 func FormatDetail(r Result) string {
 	if r.Error != "" {
 		return fmt.Sprintf("%s\n\n  error  %s\n", r.Ticker, r.Error)
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s @ R$ %.2f\n\n", r.Ticker, r.Close)
+	closeVal := 0.0
+	if r.Close != nil {
+		closeVal = *r.Close
+	}
+	fmt.Fprintf(&b, "%s @ R$ %.2f\n\n", r.Ticker, closeVal)
+	w := tabwriter.NewWriter(&b, 0, 0, 3, ' ', 0)
 	if r.Readings != nil && r.Readings.RangePct != nil {
-		fmt.Fprintf(&b, "  range     %3.0f%%   (position in 52-week low–high band)\n", *r.Readings.RangePct)
+		_, _ = fmt.Fprintf(w, "  range\t%s\t(position in 52-week low–high band)\n", fmtPct(r.Readings.RangePct))
 	}
 	if r.Readings != nil && r.Readings.DrawdownPct != nil && r.Meta != nil {
-		fmt.Fprintf(&b, "  drawdown  %s   (from peak R$ %.2f on %s)\n",
+		_, _ = fmt.Fprintf(w, "  drawdown\t%s\t(from peak R$ %.2f on %s)\n",
 			fmtPctSigned(r.Readings.DrawdownPct), r.Meta.PeakClose, r.Meta.PeakDate)
 	}
 	if r.Readings != nil && r.Readings.SMA200Pct != nil && r.Meta != nil {
-		fmt.Fprintf(&b, "  sma200    %s   (200-day average R$ %.2f)\n", fmtPctSigned(r.Readings.SMA200Pct), r.Meta.SMA200)
+		_, _ = fmt.Fprintf(w, "  sma200\t%s\t(200-day average R$ %.2f)\n", fmtPctSigned(r.Readings.SMA200Pct), r.Meta.SMA200)
 	}
 	if r.Readings != nil && r.Readings.RSI != nil {
-		fmt.Fprintf(&b, "  rsi       %3.0f     (14-day Wilder)\n", *r.Readings.RSI)
+		_, _ = fmt.Fprintf(w, "  rsi\t%s\t(14-day Wilder)\n", fmtNum(r.Readings.RSI))
 	}
 	if r.Readings != nil && r.Readings.VolumeRatio != nil {
-		fmt.Fprintf(&b, "  volume    %.1f×    (vs 20-day average)\n", *r.Readings.VolumeRatio)
+		_, _ = fmt.Fprintf(w, "  volume\t%.1f×\t(vs 20-day average)\n", *r.Readings.VolumeRatio)
 	}
+	_ = w.Flush()
 	return b.String()
 }
 

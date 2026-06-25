@@ -130,7 +130,7 @@ func TestEvaluate(t *testing.T) {
 	vals[209] = 50
 	b := testBars(vals...)
 	r := Evaluate("TEST", b)
-	if r.Ticker != "TEST" || r.Close != 50 {
+	if r.Ticker != "TEST" || r.Close == nil || *r.Close != 50 {
 		t.Fatalf("got %+v", r)
 	}
 	if r.Readings == nil || r.Readings.RangePct == nil || r.Readings.DrawdownPct == nil {

@@ -28,7 +28,7 @@ type Meta struct {
 // Result is one ticker's scan row.
 type Result struct {
 	Ticker   string    `json:"ticker"`
-	Close    float64   `json:"close,omitempty"`
+	Close    *float64  `json:"close,omitempty"`
 	Readings *Readings `json:"readings,omitempty"`
 	Meta     *Meta     `json:"meta,omitempty"`
 	Error    string    `json:"error,omitempty"`
@@ -57,7 +57,7 @@ func Evaluate(ticker string, bars []prices.Bar) Result {
 	if len(bars) == 0 {
 		return r
 	}
-	r.Close = bars[len(bars)-1].Close
+	r.Close = ptr(bars[len(bars)-1].Close)
 
 	var readings Readings
 	var meta Meta

@@ -16,7 +16,7 @@ func TestFormatHeader(t *testing.T) {
 
 func TestFormatTableBody(t *testing.T) {
 	results := []Result{
-		{Ticker: "PETR4", Close: 38, Readings: &Readings{
+		{Ticker: "PETR4", Close: ptr(38), Readings: &Readings{
 			RangePct: ptr(18), DrawdownPct: ptr(-22), SMA200Pct: ptr(-12), RSI: ptr(27),
 		}},
 		{Ticker: "XPTO3", Error: "No data"},
@@ -57,9 +57,43 @@ func TestFormatTableAlignment(t *testing.T) {
 	}
 }
 
+// TestFormatTableSignedTokens guards the #32 regression: the sign must stay glued
+// to the digits in the DRAWDOWN / vs SMA200 columns (e.g. "−1%", "+3%"), never
+// detached as "−  1%" / "+  3%". The alignment test above only inspects RANGE,
+// which uses the unsigned formatter, so it cannot catch this.
+func TestFormatTableSignedTokens(t *testing.T) {
+	results := []Result{
+		{Ticker: "AAA", Readings: &Readings{
+			RangePct: ptr(5), DrawdownPct: ptr(-1), SMA200Pct: ptr(3), RSI: ptr(9),
+		}},
+	}
+	out := FormatTableBody(results)
+	for _, want := range []string{"−1%", "+3%"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("want clean signed token %q in:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "− ") || strings.Contains(out, "+ ") {
+		t.Fatalf("sign detached from digits:\n%s", out)
+	}
+}
+
+// TestFormatJSONClose guards the #M1 contract: a genuine close is present on
+// success rows (a 0.0 close must not be dropped by omitempty).
+func TestFormatJSONClose(t *testing.T) {
+	results := []Result{{Ticker: "ZERO", Close: ptr(0), Readings: &Readings{RangePct: ptr(10)}}}
+	out, err := FormatJSON("2026-06-25", results)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"close": 0`) {
+		t.Fatalf("want close present on success row: %q", out)
+	}
+}
+
 func TestFormatJSON(t *testing.T) {
 	results := []Result{{
-		Ticker: "PETR4", Close: 38.42,
+		Ticker: "PETR4", Close: ptr(38.42),
 		Readings: &Readings{RangePct: ptr(18), RSI: ptr(27)},
 		Meta:     &Meta{PeakDate: "2026-03-14", PeakClose: 49.2, SMA200: 43.6},
 	}}
@@ -75,8 +109,8 @@ func TestFormatJSONFailureRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(out, `"readings"`) || strings.Contains(out, `"meta"`) {
-		t.Fatalf("failure row should omit readings/meta: %q", out)
+	if strings.Contains(out, `"readings"`) || strings.Contains(out, `"meta"`) || strings.Contains(out, `"close"`) {
+		t.Fatalf("failure row should omit readings/meta/close: %q", out)
 	}
 	if !strings.Contains(out, `"error": "API error"`) {
 		t.Fatalf("missing error field: %q", out)
@@ -85,7 +119,7 @@ func TestFormatJSONFailureRow(t *testing.T) {
 
 func TestFormatDetail(t *testing.T) {
 	r := Result{
-		Ticker: "PETR4", Close: 38.42,
+		Ticker: "PETR4", Close: ptr(38.42),
 		Readings: &Readings{
 			RangePct: ptr(18), DrawdownPct: ptr(-22), SMA200Pct: ptr(-12),
 			RSI: ptr(27), VolumeRatio: ptr(1.4),
@@ -102,7 +136,7 @@ func TestFormatDetail(t *testing.T) {
 
 func TestFormatDetailAll(t *testing.T) {
 	results := []Result{
-		{Ticker: "A", Close: 1, Readings: &Readings{RangePct: ptr(10)}},
+		{Ticker: "A", Close: ptr(1), Readings: &Readings{RangePct: ptr(10)}},
 		{Ticker: "B", Error: "No data"},
 	}
 	out := FormatDetailAll(results)
