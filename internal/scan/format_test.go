@@ -20,3 +20,15 @@ func TestFormatTable(t *testing.T) {
 		t.Fatalf("missing failure row: %q", out)
 	}
 }
+
+func TestFormatJSON(t *testing.T) {
+	results := []Result{{
+		Ticker: "PETR4", Close: 38.42,
+		Readings: Readings{RangePct: ptr(18), RSI: ptr(27)},
+		Meta:     Meta{PeakDate: "2026-03-14", PeakClose: 49.2, SMA200: 43.6},
+	}}
+	out, err := FormatJSON("2026-06-25", results)
+	if err != nil || !strings.Contains(out, `"range_pct": 18`) || !strings.Contains(out, `"as_of"`) {
+		t.Fatalf("err=%v out=%q", err, out)
+	}
+}

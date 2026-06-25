@@ -1,10 +1,16 @@
 package scan
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"text/tabwriter"
 )
+
+type jsonOut struct {
+	AsOf    string   `json:"as_of"`
+	Tickers []Result `json:"tickers"`
+}
 
 // FormatTable renders the human scan table (header line uses DATE placeholder — CLI adds real date).
 func FormatTable(results []Result, tickerCount int) string {
@@ -55,4 +61,13 @@ func fmtNum(p *float64, prec int) string {
 		return "—"
 	}
 	return fmt.Sprintf("%*.*f", 3+prec, prec, *p)
+}
+
+func FormatJSON(asOf string, results []Result) (string, error) {
+	payload := jsonOut{AsOf: asOf, Tickers: results}
+	b, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(b) + "\n", nil
 }
