@@ -133,7 +133,7 @@ func TestEvaluate(t *testing.T) {
 	if r.Ticker != "TEST" || r.Close != 50 {
 		t.Fatalf("got %+v", r)
 	}
-	if r.Readings.RangePct == nil || r.Readings.DrawdownPct == nil {
+	if r.Readings == nil || r.Readings.RangePct == nil || r.Readings.DrawdownPct == nil {
 		t.Fatalf("want range+drawdown, got %+v", r.Readings)
 	}
 }
@@ -196,6 +196,32 @@ func scanFixture() []byte {
 	}
 	closes[209] = 40
 	return buildChart(closes)
+}
+
+func TestSortResults(t *testing.T) {
+	low := Result{Ticker: "A", Readings: &Readings{RangePct: ptr(10)}}
+	high := Result{Ticker: "B", Readings: &Readings{RangePct: ptr(90)}}
+	noRange := Result{Ticker: "D", Readings: &Readings{}}
+	fail := Result{Ticker: "C", Error: "No data"}
+
+	got := sortResults([]Result{fail, high, low, noRange})
+	want := []string{"A", "B", "D", "C"}
+	if len(got) != len(want) {
+		t.Fatalf("len=%d want %d", len(got), len(want))
+	}
+	for i, tk := range want {
+		if got[i].Ticker != tk {
+			t.Fatalf("at %d: got %s want %s (full: %v)", i, got[i].Ticker, tk, tickers(got))
+		}
+	}
+}
+
+func tickers(rs []Result) []string {
+	out := make([]string, len(rs))
+	for i, r := range rs {
+		out[i] = r.Ticker
+	}
+	return out
 }
 
 func TestRun(t *testing.T) {

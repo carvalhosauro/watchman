@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"text/tabwriter"
 )
 
 type jsonOut struct {
@@ -11,32 +12,42 @@ type jsonOut struct {
 	Tickers []Result `json:"tickers"`
 }
 
-// FormatTable renders the human scan table (header line uses DATE placeholder — CLI adds real date).
-func FormatTable(results []Result, tickerCount int) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "watchman scan — %s  (%d tickers)\n\n", "DATE", tickerCount)
-	b.WriteString(FormatTableBody(results))
-	return b.String()
+// FormatHeader renders the scan title line with date and ticker count.
+func FormatHeader(date string, tickerCount int) string {
+	noun := "tickers"
+	if tickerCount == 1 {
+		noun = "ticker"
+	}
+	return fmt.Sprintf("watchman scan — %s  (%d %s)\n\n", date, tickerCount, noun)
 }
 
-// FormatTableBody renders table columns only (used by CLI with real date in header).
+// FormatTableBody renders aligned table columns (header + rows).
 func FormatTableBody(results []Result) string {
-	var b strings.Builder
-	b.WriteString("TICKER   RANGE   DRAWDOWN   vs SMA200   RSI\n")
+	var buf strings.Builder
+	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+	_, _ = fmt.Fprintln(w, "TICKER\tRANGE\tDRAWDOWN\tvs SMA200\tRSI")
 	for _, r := range results {
 		if r.Error != "" {
-			fmt.Fprintf(&b, "%-8s —       —          —           —       %s\n", r.Ticker, r.Error)
+			_, _ = fmt.Fprintf(w, "%s\t—\t—\t—\t—\t%s\n", r.Ticker, r.Error)
 			continue
 		}
-		fmt.Fprintf(&b, "%-8s %s   %s   %s   %s\n",
+		var rp, dp, sp, rsi *float64
+		if r.Readings != nil {
+			rp = r.Readings.RangePct
+			dp = r.Readings.DrawdownPct
+			sp = r.Readings.SMA200Pct
+			rsi = r.Readings.RSI
+		}
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 			r.Ticker,
-			fmtPct(r.Readings.RangePct),
-			fmtPctSigned(r.Readings.DrawdownPct),
-			fmtPctSigned(r.Readings.SMA200Pct),
-			fmtNum(r.Readings.RSI, 0),
+			fmtPct(rp),
+			fmtPctSigned(dp),
+			fmtPctSigned(sp),
+			fmtNum(rsi),
 		)
 	}
-	return b.String()
+	_ = w.Flush()
+	return buf.String()
 }
 
 func fmtPct(p *float64) string {
@@ -50,14 +61,18 @@ func fmtPctSigned(p *float64) string {
 	if p == nil {
 		return "—"
 	}
-	return fmt.Sprintf("%+4.0f%%", *p)
+	v := *p
+	if v >= 0 {
+		return fmt.Sprintf("+%3.0f%%", v)
+	}
+	return fmt.Sprintf("−%3.0f%%", -v)
 }
 
-func fmtNum(p *float64, prec int) string {
+func fmtNum(p *float64) string {
 	if p == nil {
 		return "—"
 	}
-	return fmt.Sprintf("%*.*f", 3+prec, prec, *p)
+	return fmt.Sprintf("%3.0f", *p)
 }
 
 // FormatJSON renders scan results as indented JSON with an as_of timestamp.
@@ -77,20 +92,20 @@ func FormatDetail(r Result) string {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s @ R$ %.2f\n\n", r.Ticker, r.Close)
-	if r.Readings.RangePct != nil {
+	if r.Readings != nil && r.Readings.RangePct != nil {
 		fmt.Fprintf(&b, "  range     %3.0f%%   (position in 52-week low–high band)\n", *r.Readings.RangePct)
 	}
-	if r.Readings.DrawdownPct != nil {
-		fmt.Fprintf(&b, "  drawdown  %+4.0f%%   (from peak R$ %.2f on %s)\n",
-			*r.Readings.DrawdownPct, r.Meta.PeakClose, r.Meta.PeakDate)
+	if r.Readings != nil && r.Readings.DrawdownPct != nil && r.Meta != nil {
+		fmt.Fprintf(&b, "  drawdown  %s   (from peak R$ %.2f on %s)\n",
+			fmtPctSigned(r.Readings.DrawdownPct), r.Meta.PeakClose, r.Meta.PeakDate)
 	}
-	if r.Readings.SMA200Pct != nil {
-		fmt.Fprintf(&b, "  sma200    %+4.0f%%   (200-day average R$ %.2f)\n", *r.Readings.SMA200Pct, r.Meta.SMA200)
+	if r.Readings != nil && r.Readings.SMA200Pct != nil && r.Meta != nil {
+		fmt.Fprintf(&b, "  sma200    %s   (200-day average R$ %.2f)\n", fmtPctSigned(r.Readings.SMA200Pct), r.Meta.SMA200)
 	}
-	if r.Readings.RSI != nil {
+	if r.Readings != nil && r.Readings.RSI != nil {
 		fmt.Fprintf(&b, "  rsi       %3.0f     (14-day Wilder)\n", *r.Readings.RSI)
 	}
-	if r.Readings.VolumeRatio != nil {
+	if r.Readings != nil && r.Readings.VolumeRatio != nil {
 		fmt.Fprintf(&b, "  volume    %.1f×    (vs 20-day average)\n", *r.Readings.VolumeRatio)
 	}
 	return b.String()

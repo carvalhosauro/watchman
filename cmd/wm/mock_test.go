@@ -131,7 +131,7 @@ func TestMockDrivesScan(t *testing.T) {
 	if got["XPTO3"].Error != "No data" {
 		t.Errorf("XPTO3 = %+v want No data", got["XPTO3"])
 	}
-	if got["SCAN1"].Error != "" || got["SCAN1"].Readings.RangePct == nil {
+	if got["SCAN1"].Error != "" || got["SCAN1"].Readings == nil || got["SCAN1"].Readings.RangePct == nil {
 		t.Errorf("SCAN1 = %+v want readings", got["SCAN1"])
 	}
 }

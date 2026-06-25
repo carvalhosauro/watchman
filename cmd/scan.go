@@ -38,12 +38,13 @@ func init() {
 				_, _ = fmt.Fprint(out, s)
 				return nil
 			}
+			header := scan.FormatHeader(date, len(tickers))
 			if detail {
-				_, _ = fmt.Fprintf(out, "watchman scan — %s  (%d tickers)\n\n", date, len(tickers))
+				_, _ = fmt.Fprint(out, header)
 				_, _ = fmt.Fprint(out, scan.FormatDetailAll(results))
 				return nil
 			}
-			_, _ = fmt.Fprintf(out, "watchman scan — %s  (%d tickers)\n\n", date, len(tickers))
+			_, _ = fmt.Fprint(out, header)
 			_, _ = fmt.Fprint(out, scan.FormatTableBody(results))
 			return nil
 		},

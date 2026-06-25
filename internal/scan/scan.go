@@ -27,12 +27,19 @@ type Meta struct {
 
 // Result is one ticker's scan row.
 type Result struct {
-	Ticker   string   `json:"ticker"`
-	Close    float64  `json:"close,omitempty"`
-	Readings Readings `json:"readings,omitempty"`
-	Meta     Meta     `json:"meta,omitempty"`
-	Error    string   `json:"error,omitempty"`
+	Ticker   string    `json:"ticker"`
+	Close    float64   `json:"close,omitempty"`
+	Readings *Readings `json:"readings,omitempty"`
+	Meta     *Meta     `json:"meta,omitempty"`
+	Error    string    `json:"error,omitempty"`
 }
+
+const (
+	// rankErr sorts fetch failures after all rows with data.
+	rankErr = 1e9
+	// rankNoRange sorts rows missing range below valid range values but above failures.
+	rankNoRange = 1e8
+)
 
 func closeSeries(bars []prices.Bar) []float64 {
 	out := make([]float64, len(bars))
@@ -52,23 +59,41 @@ func Evaluate(ticker string, bars []prices.Bar) Result {
 	}
 	r.Close = bars[len(bars)-1].Close
 
+	var readings Readings
+	var meta Meta
+	hasReading := false
+	hasMeta := false
+
 	if v, ok := rangePct(bars); ok {
-		r.Readings.RangePct = ptr(v)
+		readings.RangePct = ptr(v)
+		hasReading = true
 	}
 	if dd, peakDate, peakClose, ok := drawdownPct(bars); ok {
-		r.Readings.DrawdownPct = ptr(dd)
-		r.Meta.PeakDate = peakDate
-		r.Meta.PeakClose = peakClose
+		readings.DrawdownPct = ptr(dd)
+		meta.PeakDate = peakDate
+		meta.PeakClose = peakClose
+		hasReading = true
+		hasMeta = true
 	}
 	if pct, sma, ok := sma200Pct(bars); ok {
-		r.Readings.SMA200Pct = ptr(pct)
-		r.Meta.SMA200 = sma
+		readings.SMA200Pct = ptr(pct)
+		meta.SMA200 = sma
+		hasReading = true
+		hasMeta = true
 	}
 	if v, ok := rsiValue(bars); ok {
-		r.Readings.RSI = ptr(v)
+		readings.RSI = ptr(v)
+		hasReading = true
 	}
 	if v, ok := volumeRatio(bars); ok {
-		r.Readings.VolumeRatio = ptr(v)
+		readings.VolumeRatio = ptr(v)
+		hasReading = true
+	}
+	if hasReading {
+		r.Readings = &readings
+	}
+	if hasMeta {
+		r.Meta = &meta
 	}
 	return r
 }
@@ -92,11 +117,10 @@ func Run(tickers []string, _ any) []Result {
 		bars, err := prices.History(tk)
 		out = append(out, BuildRow(tk, bars, err))
 	}
-	return SortResults(out)
+	return sortResults(out)
 }
 
-// SortResults orders by range ascending; failures last; nil range after valid.
-func SortResults(in []Result) []Result {
+func sortResults(in []Result) []Result {
 	out := append([]Result(nil), in...)
 	sort.SliceStable(out, func(i, j int) bool {
 		return rank(out[i]) < rank(out[j])
@@ -106,10 +130,10 @@ func SortResults(in []Result) []Result {
 
 func rank(r Result) float64 {
 	if r.Error != "" {
-		return 1e9
+		return rankErr
 	}
-	if r.Readings.RangePct == nil {
-		return 1e8
+	if r.Readings == nil || r.Readings.RangePct == nil {
+		return rankNoRange
 	}
 	return *r.Readings.RangePct
 }
