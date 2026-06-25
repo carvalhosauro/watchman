@@ -63,3 +63,37 @@ func sma200Pct(bars []prices.Bar) (pct float64, sma float64, ok bool) {
 	}
 	return (last - sma) / sma * 100, sma, true
 }
+
+const rsiPeriod = 14
+
+func rsiValue(bars []prices.Bar) (float64, bool) {
+	cs := closeSeries(bars)
+	if len(cs) < rsiPeriod+1 {
+		return 0, false
+	}
+	var gain, loss float64
+	for i := 1; i <= rsiPeriod; i++ {
+		d := cs[i] - cs[i-1]
+		if d >= 0 {
+			gain += d
+		} else {
+			loss -= d
+		}
+	}
+	avgGain, avgLoss := gain/rsiPeriod, loss/rsiPeriod
+	for i := rsiPeriod + 1; i < len(cs); i++ {
+		d := cs[i] - cs[i-1]
+		g, l := 0.0, 0.0
+		if d >= 0 {
+			g = d
+		} else {
+			l = -d
+		}
+		avgGain = (avgGain*(rsiPeriod-1) + g) / rsiPeriod
+		avgLoss = (avgLoss*(rsiPeriod-1) + l) / rsiPeriod
+	}
+	if avgLoss == 0 {
+		return 100, true
+	}
+	return 100 - 100/(1+avgGain/avgLoss), true
+}

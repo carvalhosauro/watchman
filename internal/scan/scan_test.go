@@ -93,3 +93,17 @@ func TestSMA200Pct(t *testing.T) {
 		t.Fatal("want ok=false for <200 bars")
 	}
 }
+
+func TestRSIValue(t *testing.T) {
+	up := make([]float64, 20)
+	for i := range up {
+		up[i] = 10 + float64(i)
+	}
+	v, ok := rsiValue(testBars(up...))
+	if !ok || v <= 80 {
+		t.Fatalf("monotonic up: got %v ok=%v", v, ok)
+	}
+	if _, ok := rsiValue(testBars(10, 11)); ok {
+		t.Fatal("want ok=false for <15 bars")
+	}
+}
