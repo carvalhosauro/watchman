@@ -1,6 +1,8 @@
 package scan
 
 import (
+	"errors"
+
 	"github.com/carvalhosauro/watchman/internal/prices"
 )
 
@@ -38,3 +40,44 @@ func closeSeries(bars []prices.Bar) []float64 {
 }
 
 func ptr(f float64) *float64 { return &f }
+
+// Evaluate computes all readings for one ticker from bars.
+func Evaluate(ticker string, bars []prices.Bar) Result {
+	r := Result{Ticker: ticker}
+	if len(bars) == 0 {
+		return r
+	}
+	r.Close = bars[len(bars)-1].Close
+
+	if v, ok := rangePct(bars); ok {
+		r.Readings.RangePct = ptr(v)
+	}
+	if dd, peakDate, peakClose, ok := drawdownPct(bars); ok {
+		r.Readings.DrawdownPct = ptr(dd)
+		r.Meta.PeakDate = peakDate
+		r.Meta.PeakClose = peakClose
+	}
+	if pct, sma, ok := sma200Pct(bars); ok {
+		r.Readings.SMA200Pct = ptr(pct)
+		r.Meta.SMA200 = sma
+	}
+	if v, ok := rsiValue(bars); ok {
+		r.Readings.RSI = ptr(v)
+	}
+	if v, ok := volumeRatio(bars); ok {
+		r.Readings.VolumeRatio = ptr(v)
+	}
+	return r
+}
+
+// BuildRow maps fetch outcome to a Result.
+func BuildRow(ticker string, bars []prices.Bar, fetchErr error) Result {
+	if fetchErr != nil {
+		fail := "API error"
+		if errors.Is(fetchErr, prices.ErrNoData) {
+			fail = "No data"
+		}
+		return Result{Ticker: ticker, Error: fail}
+	}
+	return Evaluate(ticker, bars)
+}

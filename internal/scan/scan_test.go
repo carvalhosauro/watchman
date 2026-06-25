@@ -1,6 +1,7 @@
 package scan
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -128,5 +129,35 @@ func TestVolumeRatio(t *testing.T) {
 	}
 	if _, ok := volumeRatio(volBars(1000)); ok {
 		t.Fatal("want ok=false for <21 bars")
+	}
+}
+
+func TestEvaluate(t *testing.T) {
+	vals := make([]float64, 210)
+	for i := range vals {
+		vals[i] = 100
+	}
+	vals[209] = 50
+	b := testBars(vals...)
+	r := Evaluate("TEST", b)
+	if r.Ticker != "TEST" || r.Close != 50 {
+		t.Fatalf("got %+v", r)
+	}
+	if r.Readings.RangePct == nil || r.Readings.DrawdownPct == nil {
+		t.Fatalf("want range+drawdown, got %+v", r.Readings)
+	}
+}
+
+func TestBuildRowNoData(t *testing.T) {
+	r := BuildRow("X", nil, prices.ErrNoData)
+	if r.Error != "No data" {
+		t.Fatalf("got %+v", r)
+	}
+}
+
+func TestBuildRowAPIError(t *testing.T) {
+	r := BuildRow("X", nil, errors.New("http 500"))
+	if r.Error != "API error" {
+		t.Fatalf("got %+v", r)
 	}
 }
