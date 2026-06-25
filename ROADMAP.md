@@ -18,7 +18,7 @@ not a promise — order can shift. Detailed specs/plans live under
 
 Spec: [`docs/superpowers/specs/2026-06-25-scan-opportunity-design.md`](docs/superpowers/specs/2026-06-25-scan-opportunity-design.md).
 
-- **Scan (1a)** — `wm scan`: neutral technical readout table (RANGE, DRAWDOWN, vs
+- **Scan (1a)** — *Done* — `wm scan`: neutral technical readout table (RANGE, DRAWDOWN, vs
   SMA200, RSI, VOL) + `--detail` + `--json`. Separate JTBD from `wm run` anomalies.
 - **Explain (1b)** — `docs/indicators/` reference + `wm explain [INDICATOR]`.
 - **Wallet UX (1c)** — multi-ticker `add`, `clear --yes`, default `list`.

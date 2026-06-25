@@ -1,0 +1,29 @@
+# wm scan table against mock upstream
+cp wallet_seed wallet
+wm scan SCAN1
+stdout 'watchman scan'
+stdout 'SCAN1'
+stdout 'RANGE'
+
+# JSON output
+wm scan SCAN1 --json
+stdout '"ticker": "SCAN1"'
+stdout '"as_of"'
+
+# detail mode
+wm scan SCAN1 --detail
+stdout 'position in 52-week'
+
+# failure row
+wm scan XPTO3
+stdout 'XPTO3'
+stdout 'No data'
+
+# empty wallet hint
+env WATCHMAN_WALLET=$WORK/empty
+wm scan
+stdout 'No tickers'
+
+-- wallet_seed --
+SCAN1
+XPTO3
