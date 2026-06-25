@@ -2,6 +2,7 @@ package scan
 
 import (
 	"errors"
+	"sort"
 
 	"github.com/carvalhosauro/watchman/internal/prices"
 )
@@ -80,4 +81,33 @@ func BuildRow(ticker string, bars []prices.Bar, fetchErr error) Result {
 		return Result{Ticker: ticker, Error: fail}
 	}
 	return Evaluate(ticker, bars)
+}
+
+// Run fetches each ticker and returns scan results.
+func Run(tickers []string, _ any) []Result {
+	out := make([]Result, 0, len(tickers))
+	for _, tk := range tickers {
+		bars, err := prices.History(tk)
+		out = append(out, BuildRow(tk, bars, err))
+	}
+	return SortResults(out)
+}
+
+// SortResults orders by range ascending; failures last; nil range after valid.
+func SortResults(in []Result) []Result {
+	out := append([]Result(nil), in...)
+	sort.SliceStable(out, func(i, j int) bool {
+		return rank(out[i]) < rank(out[j])
+	})
+	return out
+}
+
+func rank(r Result) float64 {
+	if r.Error != "" {
+		return 1e9
+	}
+	if r.Readings.RangePct == nil {
+		return 1e8
+	}
+	return *r.Readings.RangePct
 }

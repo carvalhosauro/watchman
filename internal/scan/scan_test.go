@@ -1,7 +1,10 @@
 package scan
 
 import (
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -160,4 +163,66 @@ func TestBuildRowAPIError(t *testing.T) {
 	if r.Error != "API error" {
 		t.Fatalf("got %+v", r)
 	}
+}
+
+type quoteJSON struct {
+	Close  []float64 `json:"close"`
+	Volume []float64 `json:"volume"`
+}
+
+// buildChart builds a Yahoo chart payload for the given closes (volume = 1000 each).
+func buildChart(closes []float64) []byte {
+	ts := make([]int64, len(closes))
+	vol := make([]float64, len(closes))
+	for i := range closes {
+		ts[i] = int64(i) * 86400
+		vol[i] = 1000
+	}
+	var r struct {
+		Chart struct {
+			Error  any `json:"error"`
+			Result []struct {
+				Timestamp  []int64 `json:"timestamp"`
+				Indicators struct {
+					Quote []quoteJSON `json:"quote"`
+				} `json:"indicators"`
+			} `json:"result"`
+		} `json:"chart"`
+	}
+	res := struct {
+		Timestamp  []int64 `json:"timestamp"`
+		Indicators struct {
+			Quote []quoteJSON `json:"quote"`
+		} `json:"indicators"`
+	}{Timestamp: ts}
+	res.Indicators.Quote = []quoteJSON{{Close: closes, Volume: vol}}
+	r.Chart.Result = append(r.Chart.Result, res)
+	b, _ := json.Marshal(r)
+	return b
+}
+
+func scanFixture() []byte {
+	// reuse chart builder pattern — 210 bars ramp then drop
+	closes := make([]float64, 210)
+	for i := range closes {
+		closes[i] = 100
+	}
+	closes[209] = 40
+	return buildChart(closes)
+}
+
+func TestRun(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(scanFixture())
+	}))
+	defer srv.Close()
+	orig := prices.BaseURL
+	defer func() { prices.BaseURL = orig }()
+	prices.BaseURL = srv.URL + "/prices"
+
+	results := Run([]string{"PETR4", "XPTO3"}, nil)
+	if len(results) != 2 {
+		t.Fatalf("len=%d", len(results))
+	}
+	// failure row sorted last — tested in format tests; here just smoke
 }
