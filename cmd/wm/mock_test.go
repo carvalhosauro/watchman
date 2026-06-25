@@ -9,6 +9,7 @@ import (
 
 	"github.com/carvalhosauro/watchman/internal/glance"
 	"github.com/carvalhosauro/watchman/internal/prices"
+	"github.com/carvalhosauro/watchman/internal/scan"
 	"github.com/carvalhosauro/watchman/internal/signals"
 )
 
@@ -64,7 +65,16 @@ func calmSeries() []float64 {
 	return s
 }
 
-// newMockServer routes by ticker: PETR4 abnormal, XPTO3 error payload, others calm.
+func scanSeries() []float64 {
+	s := make([]float64, 210)
+	for i := range s {
+		s[i] = 100
+	}
+	s[209] = 40 // deep in range band
+	return s
+}
+
+// newMockServer routes by ticker: PETR4 abnormal, SCAN1 scan series, XPTO3 error payload, others calm.
 func newMockServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	errPayload := []byte(`{"chart":{"error":"Not Found","result":null}}`)
@@ -72,6 +82,8 @@ func newMockServer(t *testing.T) *httptest.Server {
 		switch {
 		case strings.Contains(r.URL.Path, "PETR4"):
 			_, _ = w.Write(chart(abnormalSeries()))
+		case strings.Contains(r.URL.Path, "SCAN1"):
+			_, _ = w.Write(chart(scanSeries()))
 		case strings.Contains(r.URL.Path, "XPTO3"):
 			_, _ = w.Write(errPayload)
 		default:
@@ -102,5 +114,24 @@ func TestMockDrivesGlance(t *testing.T) {
 	}
 	if got["XPTO3"].Fail != "No data" {
 		t.Errorf("XPTO3 = %+v want No data", got["XPTO3"])
+	}
+}
+
+func TestMockDrivesScan(t *testing.T) {
+	srv := newMockServer(t)
+	orig := prices.BaseURL
+	t.Cleanup(func() { prices.BaseURL = orig })
+	prices.BaseURL = srv.URL + "/prices"
+
+	results := scan.Run([]string{"SCAN1", "XPTO3"}, nil)
+	got := map[string]scan.Result{}
+	for _, r := range results {
+		got[r.Ticker] = r
+	}
+	if got["XPTO3"].Error != "No data" {
+		t.Errorf("XPTO3 = %+v want No data", got["XPTO3"])
+	}
+	if got["SCAN1"].Error != "" || got["SCAN1"].Readings.RangePct == nil {
+		t.Errorf("SCAN1 = %+v want readings", got["SCAN1"])
 	}
 }
