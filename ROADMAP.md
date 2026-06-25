@@ -14,12 +14,21 @@ not a promise — order can shift. Detailed specs/plans live under
   (No data / API error). News was dropped as a signal — sourcing didn't justify the
   value (see [`docs/design/2026-06-21-news-source.md`](docs/design/2026-06-21-news-source.md)).
 
-## Next — history & schedule
+## Next — scan & opportunity indicators
 
-- **History** — append NDJSON per `wm run` to `~/.config/watchman/history.ndjson`;
-  `wm history [-n N]`. No DB. *Done:* runs are logged and listed.
-- **Schedule** — `wm schedule --every 1h` writes a systemd user timer / cron calling
-  `wm run`; `wm unschedule`. Not a daemon. *Done:* a timer is installed and fires.
+Spec: [`docs/superpowers/specs/2026-06-25-scan-opportunity-design.md`](docs/superpowers/specs/2026-06-25-scan-opportunity-design.md).
+
+- **Scan (1a)** — `wm scan`: neutral technical readout table (RANGE, DRAWDOWN, vs
+  SMA200, RSI, VOL) + `--detail` + `--json`. Separate JTBD from `wm run` anomalies.
+- **Explain (1b)** — `docs/indicators/` reference + `wm explain [INDICATOR]`.
+- **Wallet UX (1c)** — multi-ticker `add`, `clear --yes`, default `list`.
+
+## Later — history & schedule
+
+- **History** — append NDJSON per `wm scan`/`wm run` to
+  `~/.config/watchman/history.ndjson`; `wm history [-n N] [TICKER]`. No DB.
+- **Schedule** — `wm schedule --every 3d` writes a systemd user timer / cron;
+  `wm unschedule`. Not a daemon.
 
 ## Later — self-update & distribution
 
