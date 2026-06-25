@@ -107,3 +107,26 @@ func TestRSIValue(t *testing.T) {
 		t.Fatal("want ok=false for <15 bars")
 	}
 }
+
+func volBars(vols ...float64) []prices.Bar {
+	out := make([]prices.Bar, len(vols))
+	for i, v := range vols {
+		out[i] = prices.Bar{Close: 10, Volume: v}
+	}
+	return out
+}
+
+func TestVolumeRatio(t *testing.T) {
+	vols := make([]float64, 21)
+	for i := range vols {
+		vols[i] = 1000
+	}
+	vols[20] = 3000
+	r, ok := volumeRatio(volBars(vols...))
+	if !ok || r < 2.9 {
+		t.Fatalf("got %v ok=%v", r, ok)
+	}
+	if _, ok := volumeRatio(volBars(1000)); ok {
+		t.Fatal("want ok=false for <21 bars")
+	}
+}

@@ -97,3 +97,21 @@ func rsiValue(bars []prices.Bar) (float64, bool) {
 	}
 	return 100 - 100/(1+avgGain/avgLoss), true
 }
+
+const volWindow = 20
+
+func volumeRatio(bars []prices.Bar) (float64, bool) {
+	if len(bars) < volWindow+1 {
+		return 0, false
+	}
+	window := bars[len(bars)-volWindow-1 : len(bars)-1]
+	var sum float64
+	for _, b := range window {
+		sum += b.Volume
+	}
+	avg := sum / float64(volWindow)
+	if avg == 0 {
+		return 0, false
+	}
+	return bars[len(bars)-1].Volume / avg, true
+}
