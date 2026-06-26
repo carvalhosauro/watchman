@@ -24,9 +24,28 @@ cmp wallet want_mxrf
 wm wallet remove zzzz9
 cmp wallet want_mxrf
 
-# arg validation: add needs exactly one ticker
+# arg validation: add needs at least one ticker
 ! wm wallet add
-! wm wallet add A B
+
+# multi-add: several tickers in one call, deduped and uppercased
+env WATCHMAN_WALLET=$WORK/multi
+wm wallet add petr4 VALE3 petr4
+cmp multi want_multi
+
+# default subcommand: bare `wm wallet` lists
+wm wallet
+stdout '^PETR4$'
+stdout '^VALE3$'
+
+# clear requires --yes; without it the wallet is untouched
+! wm wallet clear
+stderr 'yes'
+cmp multi want_multi
+
+# clear --yes empties the wallet
+wm wallet clear --yes
+wm wallet list
+! stdout .
 
 # comments, blank lines, surrounding spaces, lowercase are all handled on read
 env WATCHMAN_WALLET=$WORK/seeded
@@ -43,6 +62,9 @@ PETR4
 MXRF11
 -- want_mxrf --
 MXRF11
+-- want_multi --
+PETR4
+VALE3
 -- seed --
 # my fiis
 

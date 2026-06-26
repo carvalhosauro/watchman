@@ -4,7 +4,6 @@ package wallet
 import (
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 )
 
@@ -39,16 +38,29 @@ func List(path string) ([]string, error) {
 }
 
 // Add appends ticker (uppercased) to the wallet at path, ignoring duplicates.
-func Add(path, ticker string) error {
-	ticker = strings.ToUpper(strings.TrimSpace(ticker))
+func Add(path, ticker string) error { return AddMany(path, ticker) }
+
+// AddMany appends every ticker (uppercased, trimmed) to the wallet at path in a
+// single write, skipping blanks and duplicates — both against the existing list
+// and within the input.
+func AddMany(path string, tickers ...string) error {
 	cur, err := List(path)
 	if err != nil {
 		return err
 	}
-	if slices.Contains(cur, ticker) {
-		return nil
+	seen := make(map[string]bool, len(cur))
+	for _, t := range cur {
+		seen[t] = true
 	}
-	return write(path, append(cur, ticker))
+	for _, t := range tickers {
+		t = strings.ToUpper(strings.TrimSpace(t))
+		if t == "" || seen[t] {
+			continue
+		}
+		seen[t] = true
+		cur = append(cur, t)
+	}
+	return write(path, cur)
 }
 
 // Remove deletes ticker from the wallet at path if present.
@@ -65,6 +77,15 @@ func Remove(path, ticker string) error {
 		}
 	}
 	return write(path, out)
+}
+
+// Clear empties the wallet at path, removing all tickers. The file is left in
+// place (truncated to empty) so List keeps working without special-casing.
+func Clear(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte{}, 0o644)
 }
 
 func write(path string, tickers []string) error {

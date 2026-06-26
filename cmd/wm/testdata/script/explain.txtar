@@ -1,0 +1,22 @@
+# --list shows every indicator key
+wm explain --list
+stdout 'range'
+stdout 'drawdown'
+stdout 'sma200'
+stdout 'rsi'
+stdout 'volume'
+
+# bare explain also lists, with a usage hint
+wm explain
+stdout 'Indicators:'
+stdout 'wm explain <indicator>'
+
+# a known indicator prints its reference doc
+wm explain range
+stdout 'RANGE'
+stdout 'What it does not mean'
+
+# unknown indicator exits non-zero with a hint
+! wm explain bogus
+stderr 'unknown indicator'
+stderr 'wm explain --list'

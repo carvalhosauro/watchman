@@ -47,10 +47,11 @@ make build        # -> bin/wm  (CGO_ENABLED=0, no runtime deps)
 ## Usage
 
 ```bash
-wm wallet add PETR4      # track an asset (dedupes, uppercases)
-wm wallet add MXRF11
-wm wallet list           # show tracked tickers
+wm wallet add PETR4 VALE3   # track one or more assets (dedupes, uppercases)
+wm wallet                   # list tracked tickers (default subcommand)
+wm wallet list              # same, explicit
 wm wallet remove PETR4
+wm wallet clear --yes       # remove all tracked tickers (--yes required)
 
 wm run                   # ranked glance over everything you hold
 wm run PETR4 VALE3       # limit to specific tickers (need not be in the wallet)
@@ -61,6 +62,9 @@ wm scan                   # neutral technical readout (RANGE, DRAWDOWN, vs SMA20
 wm scan SCAN1             # single ticker
 wm scan --detail SCAN1    # expanded factual context
 wm scan --json            # machine-readable output
+
+wm explain range          # reference doc for an indicator (range, drawdown, …)
+wm explain --list         # list indicator keys
 ```
 
 The wallet is a plain text file at `~/.config/watchman/wallet` (one ticker per line; `#` comments and blank lines ignored). Override the location with `$WATCHMAN_WALLET`.

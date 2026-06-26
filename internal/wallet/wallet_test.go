@@ -50,3 +50,38 @@ func TestAddRemove(t *testing.T) {
 		t.Fatalf("got %v want %v", got, want)
 	}
 }
+
+func TestAddMany(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "wallet")
+	if err := AddMany(p, "petr4", "VALE3", "petr4", "  mxrf11 ", ""); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := List(p)
+	want := []string{"PETR4", "VALE3", "MXRF11"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v want %v", got, want)
+	}
+	// dedupes against what is already stored
+	if err := AddMany(p, "PETR4", "ITUB4"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = List(p)
+	want = []string{"PETR4", "VALE3", "MXRF11", "ITUB4"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v want %v", got, want)
+	}
+}
+
+func TestClear(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "sub", "wallet")
+	if err := AddMany(p, "PETR4", "VALE3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Clear(p); err != nil {
+		t.Fatal(err)
+	}
+	got, err := List(p)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("after clear got %v,%v want empty,nil", got, err)
+	}
+}
