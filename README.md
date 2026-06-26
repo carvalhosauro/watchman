@@ -47,10 +47,11 @@ make build        # -> bin/wm  (CGO_ENABLED=0, no runtime deps)
 ## Usage
 
 ```bash
-wm wallet add PETR4      # track an asset (dedupes, uppercases)
-wm wallet add MXRF11
-wm wallet list           # show tracked tickers
+wm wallet add PETR4 VALE3   # track one or more assets (dedupes, uppercases)
+wm wallet                   # list tracked tickers (default subcommand)
+wm wallet list              # same, explicit
 wm wallet remove PETR4
+wm wallet clear --yes       # remove all tracked tickers (--yes required)
 
 wm run                   # ranked glance over everything you hold
 wm run PETR4 VALE3       # limit to specific tickers (need not be in the wallet)
