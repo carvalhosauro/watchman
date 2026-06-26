@@ -61,6 +61,9 @@ wm scan                   # neutral technical readout (RANGE, DRAWDOWN, vs SMA20
 wm scan SCAN1             # single ticker
 wm scan --detail SCAN1    # expanded factual context
 wm scan --json            # machine-readable output
+
+wm explain range          # reference doc for an indicator (range, drawdown, …)
+wm explain --list         # list indicator keys
 ```
 
 The wallet is a plain text file at `~/.config/watchman/wallet` (one ticker per line; `#` comments and blank lines ignored). Override the location with `$WATCHMAN_WALLET`.

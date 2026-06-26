@@ -20,7 +20,7 @@ Spec: [`docs/superpowers/specs/2026-06-25-scan-opportunity-design.md`](docs/supe
 
 - **Scan (1a)** — *Done* — `wm scan`: neutral technical readout table (RANGE, DRAWDOWN, vs
   SMA200, RSI, VOL) + `--detail` + `--json`. Separate JTBD from `wm run` anomalies.
-- **Explain (1b)** — `docs/indicators/` reference + `wm explain [INDICATOR]`.
+- **Explain (1b)** — *Done* — `docs/indicators/` reference + `wm explain [INDICATOR]` / `--list`.
 - **Wallet UX (1c)** — multi-ticker `add`, `clear --yes`, default `list`.
 
 ## Later — history & schedule
