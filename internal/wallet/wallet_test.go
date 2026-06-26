@@ -71,3 +71,17 @@ func TestAddMany(t *testing.T) {
 		t.Fatalf("got %v want %v", got, want)
 	}
 }
+
+func TestClear(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "sub", "wallet")
+	if err := AddMany(p, "PETR4", "VALE3"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Clear(p); err != nil {
+		t.Fatal(err)
+	}
+	got, err := List(p)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("after clear got %v,%v want empty,nil", got, err)
+	}
+}

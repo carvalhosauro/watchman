@@ -79,6 +79,15 @@ func Remove(path, ticker string) error {
 	return write(path, out)
 }
 
+// Clear empties the wallet at path, removing all tickers. The file is left in
+// place (truncated to empty) so List keeps working without special-casing.
+func Clear(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte{}, 0o644)
+}
+
 func write(path string, tickers []string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
